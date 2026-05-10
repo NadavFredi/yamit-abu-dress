@@ -156,6 +156,7 @@ export function DressRow({
             selectedName={
               dresses.find((d) => d.id === value.dressId)?.name
             }
+            dresses={dresses}
             onChange={(dress) => onChange({ ...value, dressId: dress.id })}
             aria-invalid={Boolean(errorsByField.dress)}
           />

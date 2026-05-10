@@ -13,16 +13,20 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DressRow } from "@/components/DressRow";
+import { LeadInfoHeader } from "@/components/LeadInfoHeader";
 import { MissingRecordIdScreen } from "@/components/MissingRecordIdScreen";
 import { MissingWebhookScreen } from "@/components/MissingWebhookScreen";
+import { LoadFailedScreen } from "@/components/LoadFailedScreen";
+import { LeadNotFoundScreen } from "@/components/LeadNotFoundScreen";
 
-import { dressesService } from "@/services/dressesService";
+import { fetchLeadContext } from "@/services/leadContextService";
 import { orderLinesService } from "@/services/orderLinesService";
 import { validateSubmission } from "@/lib/validation";
 import { buildWebhookPayload, submitToWebhook } from "@/lib/webhook";
 import type {
   Dress,
   DressSelection,
+  LeadUser,
   OrderLine,
   ValidationError,
 } from "@/types/domain";
@@ -38,13 +42,19 @@ export function RequestPage() {
   const navigate = useNavigate();
   const recordId = (searchParams.get("record_id") ?? "").trim();
 
-  const webhookUrl = import.meta.env.VITE_MAKE_WEBHOOK_URL as
+  const submitWebhookUrl = import.meta.env.VITE_MAKE_WEBHOOK_URL as
+    | string
+    | undefined;
+  const dressesWebhookUrl = import.meta.env.VITE_MAKE_DRESSES_WEBHOOK_URL as
     | string
     | undefined;
 
+  const [user, setUser] = useState<LeadUser | null>(null);
   const [dresses, setDresses] = useState<Dress[]>([]);
   const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [loadKey, setLoadKey] = useState(0);
   const [selections, setSelections] = useState<DressSelection[]>([
     emptySelection(),
   ]);
@@ -52,19 +62,27 @@ export function RequestPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!recordId || !webhookUrl) {
+    if (!recordId || !submitWebhookUrl || !dressesWebhookUrl) {
       setLoading(false);
       return;
     }
     let mounted = true;
+    setLoading(true);
+    setLoadError(false);
     Promise.all([
-      dressesService.listDresses(),
+      fetchLeadContext(dressesWebhookUrl, recordId),
       orderLinesService.listAllOrderLines(),
     ])
-      .then(([d, ol]) => {
+      .then(([ctx, ol]) => {
         if (!mounted) return;
-        setDresses(d);
+        setUser(ctx.user);
+        setDresses(ctx.dresses);
         setOrderLines(ol);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        console.error("Failed to load lead context", err);
+        setLoadError(true);
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -72,7 +90,7 @@ export function RequestPage() {
     return () => {
       mounted = false;
     };
-  }, [recordId, webhookUrl]);
+  }, [recordId, submitWebhookUrl, dressesWebhookUrl, loadKey]);
 
   const errorsByIndex = useMemo(() => {
     const map = new Map<number, ValidationError[]>();
@@ -92,8 +110,16 @@ export function RequestPage() {
     return <MissingRecordIdScreen />;
   }
 
-  if (!webhookUrl) {
+  if (!submitWebhookUrl || !dressesWebhookUrl) {
     return <MissingWebhookScreen />;
+  }
+
+  if (loadError) {
+    return <LoadFailedScreen onRetry={() => setLoadKey((k) => k + 1)} />;
+  }
+
+  if (!loading && user === null) {
+    return <LeadNotFoundScreen />;
   }
 
   const updateRow = (index: number, next: DressSelection) => {
@@ -132,7 +158,7 @@ export function RequestPage() {
         dresses,
         now: new Date(),
       });
-      await submitToWebhook(webhookUrl, payload);
+      await submitToWebhook(submitWebhookUrl, payload);
       navigate("/thank-you", {
         state: { summary: payload },
         replace: true,
@@ -149,6 +175,7 @@ export function RequestPage() {
   return (
     <div className="min-h-screen bg-muted/30 py-8">
       <div className="container max-w-3xl">
+        {user && <LeadInfoHeader user={user} />}
         <Card>
           <CardHeader>
             <CardTitle>בקשת השכרת שמלות</CardTitle>

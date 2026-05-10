@@ -55,3 +55,19 @@ export interface WebhookPayload {
   submission_timestamp: string;
   source: "yamit-abu-dress-website";
 }
+
+export interface LeadUser {
+  id: string;
+  entity_id: string;
+  tenant_id: string;
+  display_name: string | null;
+  data: Record<string, unknown>;
+  computed: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeadContext {
+  user: LeadUser | null;
+  dresses: Dress[];
+}

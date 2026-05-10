@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Loader2, Search } from "lucide-react";
+import { Check, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useDebouncedValue } from "@/lib/useDebouncedValue";
-import { dressesService } from "@/services/dressesService";
 import type { Dress } from "@/types/domain";
 import {
   Popover,
@@ -15,6 +13,7 @@ interface DressComboboxProps {
   id?: string;
   value: string;
   selectedName?: string;
+  dresses: Dress[];
   onChange: (dress: Dress) => void;
   placeholder?: string;
   "aria-invalid"?: boolean;
@@ -24,32 +23,14 @@ export function DressCombobox({
   id,
   value,
   selectedName,
+  dresses,
   onChange,
   placeholder = "בחרו שמלה...",
   "aria-invalid": ariaInvalid,
 }: DressComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const debouncedQuery = useDebouncedValue(query, 250);
-  const [results, setResults] = useState<Dress[]>([]);
-  const [loading, setLoading] = useState(false);
-  const requestId = useRef(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const myRequestId = ++requestId.current;
-    setLoading(true);
-    dressesService
-      .searchDresses(debouncedQuery)
-      .then((items) => {
-        if (myRequestId !== requestId.current) return;
-        setResults(items);
-      })
-      .finally(() => {
-        if (myRequestId === requestId.current) setLoading(false);
-      });
-  }, [debouncedQuery, open]);
 
   useEffect(() => {
     if (open) {
@@ -58,6 +39,11 @@ export function DressCombobox({
       setQuery("");
     }
   }, [open]);
+
+  const trimmed = query.trim().toLowerCase();
+  const results = trimmed
+    ? dresses.filter((d) => d.name.toLowerCase().includes(trimmed))
+    : dresses;
 
   const display = value ? selectedName ?? value : "";
 
@@ -99,12 +85,7 @@ export function DressCombobox({
           role="listbox"
           data-testid="dress-combobox-list"
         >
-          {loading && results.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              טוען...
-            </div>
-          ) : results.length === 0 ? (
+          {results.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
               לא נמצאו שמלות תואמות
             </div>

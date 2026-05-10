@@ -8,11 +8,57 @@ import { ThankYouPage } from "./ThankYouPage";
 import { expectDateDisabled, pickDate } from "@/test/datePickerHelpers";
 import { pickFromSelect } from "@/test/selectHelpers";
 
+const SUBMIT_URL = "https://hook.example.com/submit";
+const DRESSES_URL = "https://hook.example.com/dresses";
+
 const DRESS_NAMES = {
   "dress-001": "שמלת ערב כחולה",
   "dress-002": "שמלת חתונה לבנה קלאסית",
   "dress-005": "שמלת חתונה בוהו",
 } as const;
+
+const DEFAULT_LEAD_CONTEXT = {
+  user: {
+    id: "rec_123",
+    entity_id: "ent",
+    tenant_id: "ten",
+    display_name: "Test User",
+    data: {},
+    computed: {},
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+  },
+  items: [
+    { id: "dress-001", data: { name: DRESS_NAMES["dress-001"], picture: null } },
+    { id: "dress-002", data: { name: DRESS_NAMES["dress-002"], picture: null } },
+    { id: "dress-005", data: { name: DRESS_NAMES["dress-005"], picture: null } },
+  ],
+};
+
+interface FetchOverrides {
+  dresses?: () => Response | Promise<Response>;
+  submit?: () => Response | Promise<Response>;
+}
+
+function installFetchMock(overrides: FetchOverrides = {}) {
+  const dressesHandler =
+    overrides.dresses ??
+    (() =>
+      ({
+        ok: true,
+        status: 200,
+        json: async () => DEFAULT_LEAD_CONTEXT,
+      }) as unknown as Response);
+  const submitHandler =
+    overrides.submit ?? (() => ({ ok: true, status: 200 } as Response));
+
+  globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url === DRESSES_URL) return dressesHandler();
+    if (url === SUBMIT_URL) return submitHandler();
+    throw new Error(`Unexpected fetch URL in test: ${url}`);
+  }) as typeof globalThis.fetch;
+}
 
 const renderApp = (initialUrl: string) =>
   render(
@@ -30,10 +76,9 @@ describe("RequestPage", () => {
 
   beforeEach(() => {
     vi.useFakeTimers({ now: FIXED_NOW, shouldAdvanceTime: true });
-    vi.stubEnv("VITE_MAKE_WEBHOOK_URL", "https://hook.example.com/test");
-    globalThis.fetch = vi.fn(async () =>
-      ({ ok: true, status: 200 } as Response)
-    );
+    vi.stubEnv("VITE_MAKE_WEBHOOK_URL", SUBMIT_URL);
+    vi.stubEnv("VITE_MAKE_DRESSES_WEBHOOK_URL", DRESSES_URL);
+    installFetchMock();
   });
 
   afterEach(() => {
@@ -82,12 +127,14 @@ describe("RequestPage", () => {
     await user.click(screen.getByRole("button", { name: /שליחת הבקשה/i }));
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls.some(([u]) => u === SUBMIT_URL)).toBe(true);
     });
-
-    const [url, init] = (globalThis.fetch as ReturnType<typeof vi.fn>)
-      .mock.calls[0];
-    expect(url).toBe("https://hook.example.com/test");
+    const submitCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+      ([u]) => u === SUBMIT_URL
+    )!;
+    const [url, init] = submitCall;
+    expect(url).toBe(SUBMIT_URL);
     const body = JSON.parse((init as RequestInit).body as string);
     expect(body.customer_record_id).toBe("rec_123");
     expect(body.selected_dresses).toHaveLength(1);
@@ -145,12 +192,14 @@ describe("RequestPage", () => {
     await user.click(screen.getByRole("button", { name: /שליחת הבקשה/i }));
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls.some(([u]) => u === SUBMIT_URL)).toBe(true);
     });
-
+    const submitCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+      ([u]) => u === SUBMIT_URL
+    )!;
     const body = JSON.parse(
-      ((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit)
-        .body as string
+      (submitCall[1] as RequestInit).body as string
     );
     expect(body.selected_dresses).toHaveLength(2);
     expect(
@@ -173,7 +222,10 @@ describe("RequestPage", () => {
     expect(
       await screen.findByText(/יש לבחור שמלה/)
     ).toBeInTheDocument();
-    expect(globalThis.fetch).not.toHaveBeenCalled();
+    const submitCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
+      ([u]) => u === SUBMIT_URL
+    );
+    expect(submitCalls).toHaveLength(0);
   });
 
   it("blocks submission when start or end date is missing", async () => {
@@ -195,7 +247,10 @@ describe("RequestPage", () => {
     expect(
       screen.getByText(/יש לבחור תאריך סיום/)
     ).toBeInTheDocument();
-    expect(globalThis.fetch).not.toHaveBeenCalled();
+    const submitCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
+      ([u]) => u === SUBMIT_URL
+    );
+    expect(submitCalls).toHaveLength(0);
   });
 
   it("shows live availability feedback as the user picks dates", async () => {
@@ -282,7 +337,8 @@ describe("RequestPage", () => {
     await user.click(screen.getByRole("button", { name: /שליחת הבקשה/i }));
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls.some(([u]) => u === SUBMIT_URL)).toBe(true);
     });
     expect(
       await screen.findByText(/הבקשה התקבלה בהצלחה/)
@@ -363,18 +419,85 @@ describe("RequestPage", () => {
       "booked"
     );
   });
+
+  it("renders LoadFailedScreen when the dresses fetch rejects", async () => {
+    installFetchMock({
+      dresses: () =>
+        ({ ok: false, status: 500 } as Response),
+    });
+    renderApp("/?record_id=rec_123");
+    expect(
+      await screen.findByText(/טעינת השמלות נכשלה/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /נסו שוב/ })
+    ).toBeInTheDocument();
+  });
+
+  it("retries the fetch when the user clicks נסו שוב", async () => {
+    let callCount = 0;
+    installFetchMock({
+      dresses: () => {
+        callCount += 1;
+        if (callCount === 1) {
+          return { ok: false, status: 500 } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => DEFAULT_LEAD_CONTEXT,
+        } as unknown as Response;
+      },
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderApp("/?record_id=rec_123");
+
+    await screen.findByText(/טעינת השמלות נכשלה/);
+    await user.click(screen.getByRole("button", { name: /נסו שוב/ }));
+
+    expect(
+      await screen.findByRole("heading", { name: /בקשת השכרת שמלות/i })
+    ).toBeInTheDocument();
+    expect(callCount).toBe(2);
+  });
+
+  it("renders LeadNotFoundScreen when the webhook returns user: null", async () => {
+    installFetchMock({
+      dresses: () =>
+        ({
+          ok: true,
+          status: 200,
+          json: async () => ({ user: null, items: [] }),
+        }) as unknown as Response,
+    });
+    renderApp("/?record_id=rec_unknown");
+    expect(
+      await screen.findByText(/ליד לא נמצא/)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /בקשת השכרת שמלות/i })
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("RequestPage missing webhook configuration", () => {
-  beforeEach(() => {
-    vi.stubEnv("VITE_MAKE_WEBHOOK_URL", "");
-  });
-
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it("shows the configuration error screen when no webhook url is set", () => {
+  it("shows the configuration error screen when the submit webhook url is missing", () => {
+    vi.stubEnv("VITE_MAKE_WEBHOOK_URL", "");
+    vi.stubEnv("VITE_MAKE_DRESSES_WEBHOOK_URL", DRESSES_URL);
+    renderApp("/?record_id=rec_123");
+    expect(
+      screen.getByText(/כתובת ה־webhook אינה מוגדרת/)
+    ).toBeInTheDocument();
+  });
+
+  it("shows the configuration error screen when the dresses webhook url is missing", () => {
+    vi.stubEnv("VITE_MAKE_WEBHOOK_URL", SUBMIT_URL);
+    vi.stubEnv("VITE_MAKE_DRESSES_WEBHOOK_URL", "");
     renderApp("/?record_id=rec_123");
     expect(
       screen.getByText(/כתובת ה־webhook אינה מוגדרת/)
