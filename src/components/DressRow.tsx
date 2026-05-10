@@ -22,6 +22,7 @@ interface DressRowProps {
   value: DressSelection;
   dresses: Dress[];
   orderLines: OrderLine[];
+  isReservationsLoading: boolean;
   errors: ValidationError[];
   canRemove: boolean;
   onChange: (next: DressSelection) => void;
@@ -92,6 +93,7 @@ export function DressRow({
   value,
   dresses,
   orderLines,
+  isReservationsLoading,
   errors,
   canRemove,
   onChange,
@@ -117,15 +119,18 @@ export function DressRow({
     : [];
 
   const dressChosen = Boolean(value.dressId);
+  const reservationsReady = dressChosen && !isReservationsLoading;
   const todayIso = todayIsoLocal();
-  const startDateState = dressChosen
+  const startDateState = reservationsReady
     ? buildStartDateState(reservationsForDress, todayIso)
     : undefined;
-  const endDateState = dressChosen
+  const endDateState = reservationsReady
     ? buildEndDateState(reservationsForDress, todayIso, value.startDate)
     : undefined;
 
-  const liveStatus = computeLiveStatus(value, orderLines);
+  const liveStatus = reservationsReady
+    ? computeLiveStatus(value, orderLines)
+    : { kind: "idle" as const };
 
   return (
     <div className="rounded-lg border bg-card p-4 space-y-4">
@@ -174,9 +179,9 @@ export function DressRow({
             value={value.startDate}
             onChange={(next) => onChange({ ...value, startDate: next })}
             aria-invalid={Boolean(errorsByField.start)}
-            disabled={!dressChosen}
+            disabled={!reservationsReady}
             dateState={startDateState}
-            legend={dressChosen ? <CalendarLegend /> : undefined}
+            legend={reservationsReady ? <CalendarLegend /> : undefined}
           />
           {errorsByField.start?.map((e) => (
             <p key={e.code} className="text-xs text-destructive">
@@ -192,9 +197,9 @@ export function DressRow({
             value={value.endDate}
             onChange={(next) => onChange({ ...value, endDate: next })}
             aria-invalid={Boolean(errorsByField.end || errorsByField.range)}
-            disabled={!dressChosen}
+            disabled={!reservationsReady}
             dateState={endDateState}
-            legend={dressChosen ? <CalendarLegend /> : undefined}
+            legend={reservationsReady ? <CalendarLegend /> : undefined}
           />
           {errorsByField.end?.map((e) => (
             <p key={e.code} className="text-xs text-destructive">
@@ -216,6 +221,15 @@ export function DressRow({
           data-testid={`pick-dress-hint-${index}`}
         >
           בחרו שמלה תחילה כדי לצפות בזמינות
+        </div>
+      )}
+
+      {value.dressId && isReservationsLoading && (
+        <div
+          className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+          data-testid={`reservations-loading-${index}`}
+        >
+          טוען זמינות...
         </div>
       )}
 

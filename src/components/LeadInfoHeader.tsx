@@ -10,6 +10,11 @@ function readString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
+function formatPhoneForDisplay(phone: string): string {
+  const trimmed = phone.trim();
+  return trimmed.replace(/^\+972[\s-]?/, "0");
+}
+
 interface FieldProps {
   icon: typeof User;
   label: string;
@@ -42,9 +47,25 @@ export function LeadInfoHeader({ user }: LeadInfoHeaderProps) {
   return (
     <Card className="mb-4">
       <CardContent className="py-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-          {name && <Field icon={User} label="שלום," value={name} />}
-          {phone && <Field icon={Phone} label="טלפון:" value={phone} ltr />}
+        <div
+          className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+          dir="rtl"
+        >
+          {name && (
+            <div className="self-start">
+              <Field icon={User} label="שלום," value={name} />
+            </div>
+          )}
+          {phone && (
+            <div className="self-end">
+              <Field
+                icon={Phone}
+                label="טלפון:"
+                value={formatPhoneForDisplay(phone)}
+                ltr
+              />
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

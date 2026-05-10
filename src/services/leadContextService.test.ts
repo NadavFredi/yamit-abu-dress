@@ -94,6 +94,20 @@ describe("fetchLeadContext", () => {
     expect(JSON.parse(init?.body as string)).toEqual({ record_id: "rec_abc" });
   });
 
+  it("deduplicates simultaneous requests for the same record", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      okJson(realResponseSample)
+    );
+
+    const [first, second] = await Promise.all([
+      fetchLeadContext(URL, "rec_abc"),
+      fetchLeadContext(URL, "rec_abc"),
+    ]);
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(first).toEqual(second);
+  });
+
   it("maps a real-shape response to user + dresses", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       okJson(realResponseSample)

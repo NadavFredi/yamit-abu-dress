@@ -38,23 +38,29 @@ submit webhook. EasyFlow itself is untouched.
 ```bash
 npm install
 cp .env.example .env.local
-# fill in VITE_MAKE_WEBHOOK_URL (submit) and VITE_MAKE_DRESSES_WEBHOOK_URL (load) in .env.local
+# fill in all three webhook URLs in .env.local (see below)
 npm run dev
 ```
 
 Then open `http://localhost:5173/?record_id=rec_demo_123`.
 
-The site requires two Make.com webhook URLs:
+The site requires three Make.com webhook URLs:
 
-- `VITE_MAKE_WEBHOOK_URL` — receives new rental requests on submit.
+- `VITE_MAKE_SUBMIT_WEBHOOK_URL` — receives new rental requests on submit and
+  creates the final order in Make.com / EasyFlow. Current URL:
+  `https://hook.eu1.make.com/575kvx5nq2uk61mmc7mnv3bdibeyq44y`.
 - `VITE_MAKE_DRESSES_WEBHOOK_URL` — called on page load with `{ record_id }`,
   returns `{ user, items }` (lead + active dresses) for that customer.
+- `VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL` — called when the user picks a
+  dress with `{ dress_id, dress_name }`, returns `{ orders }` (existing
+  reservations for that dress, used to disable booked dates in the calendar).
+  Cached client-side per dress id for the lifetime of the page.
 
 If `record_id` is missing or empty, the user sees a Hebrew error screen and
 cannot submit.
 
-If either `VITE_MAKE_WEBHOOK_URL` or `VITE_MAKE_DRESSES_WEBHOOK_URL` is
-missing, a Hebrew configuration error screen is shown instead of the form.
+If any of the three required webhook URLs is missing, a Hebrew configuration
+error screen is shown instead of the form.
 
 ## Test
 
@@ -75,14 +81,14 @@ src/
     webhook.ts         # builds the Make.com payload and POSTs it
     utils.ts           # cn() classname helper
   services/
-    leadContextService.ts   # POSTs record_id to Make.com, returns { user, dresses }
-    orderLinesService.ts    # interface + mock impl (listAllOrderLines, byDress)
-    mockData.ts             # hard-coded reservations for development
+    leadContextService.ts        # POSTs record_id to Make.com, returns { user, dresses }
+    dressReservationsService.ts  # POSTs { dress_id, dress_name }, returns OrderLine[]
   types/domain.ts            # Dress, OrderLine, DressSelection, WebhookPayload, LeadUser, LeadContext
   components/
     ui/                      # Button, Input, Label, Card, Select, Alert
     DressRow.tsx             # one dress + start + end + remove
     DressCombobox.tsx        # client-side filtered dress picker
+    LeadInfoHeader.tsx       # name + phone banner at the top of the page
     MissingRecordIdScreen.tsx
     MissingWebhookScreen.tsx
     LoadFailedScreen.tsx     # webhook fetch failed; "נסו שוב"
@@ -120,7 +126,7 @@ block.
 
 1. Validate locally; show inline Hebrew errors per row + a top-level alert.
 2. Build payload: `{ customer_record_id, selected_dresses[], submission_timestamp, source }`.
-3. POST JSON to `VITE_MAKE_WEBHOOK_URL`.
+3. POST JSON to `VITE_MAKE_SUBMIT_WEBHOOK_URL`.
 4. On 2xx → navigate to `/thank-you` with a summary in router state.
 5. On error → toast with the message; the user can retry.
 
@@ -142,34 +148,37 @@ block.
 }
 ```
 
-## Reads and writes — both via Make.com
+## Reads and writes — all via Make.com
 
-Reads (lead + dress catalog) go through `VITE_MAKE_DRESSES_WEBHOOK_URL`.
-Writes (rental requests) go through `VITE_MAKE_WEBHOOK_URL`. The frontend
-never talks to EasyFlow directly.
+The frontend never talks to EasyFlow directly. Three webhooks cover all I/O:
 
-`MOCK_ORDER_LINES` (existing reservations) is still hard-coded in
-`src/services/mockData.ts`. To wire that up to real data, either expand the
-dresses-webhook response to include reservations, or add a third Make.com
-webhook for them and replace `MockOrderLinesService`.
+- **Lead + dresses** (page load): `VITE_MAKE_DRESSES_WEBHOOK_URL` ←
+  `{ record_id }` → `{ user, items }`
+- **Reservations per dress** (on selection): `VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL`
+  ← `{ dress_id, dress_name }` → `{ orders: [...] }`. Cached client-side per
+  dress id; no refetch on duplicate selections.
+- **Submit** (on form submit): `VITE_MAKE_SUBMIT_WEBHOOK_URL` ← rental request
+  payload → 2xx triggers EasyFlow order creation in Make.com.
 
 ## Manual test checklist
 
 - Open `/` (no record_id) → Hebrew "missing record_id" screen.
 - Open `/?record_id=` (empty) → same screen.
 - Open `/?record_id=7bfde42c-5d00-49bd-9de3-9094e5d0f0ea` → form renders with
-  the live CRM dresses.
+  the live CRM dresses, and the lead's name + phone show in the banner above.
 - Open the dress combobox → all dresses visible. Type part of a name → list
   filters live (case-insensitive substring).
+- Pick a dress → "טוען זמינות..." appears briefly, then the date pickers
+  un-disable and existing reservations show as red/disabled days.
+- Pick the same dress in two rows → only one reservations webhook call fires
+  (cached). Verify in Make.com history or Network tab.
 - Open with an unknown record_id (e.g., `00000000-0000-0000-0000-000000000000`)
   → `LeadNotFoundScreen` ("ליד לא נמצא") renders, form does not appear.
 - Temporarily point `VITE_MAKE_DRESSES_WEBHOOK_URL` at a non-existent host or
   a 500 endpoint → reload → `LoadFailedScreen`. Restore env, click "נסו שוב"
   → page recovers.
-- Remove `VITE_MAKE_DRESSES_WEBHOOK_URL` from `.env.local` → reload → "תצורה
+- Remove any of the three webhook URLs from `.env.local` → reload → "תצורה
   חסרה" screen.
-- Remove `VITE_MAKE_WEBHOOK_URL` from `.env.local` → reload → "תצורה חסרה"
-  screen.
 - Pick a dress, set start + end → submit → thank-you page with summary.
 - Click "הוספת שמלה נוספת" twice → three rows. Remove the middle one.
 - Pick the same dress twice → duplicate error.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -20,7 +20,7 @@ import { LoadFailedScreen } from "@/components/LoadFailedScreen";
 import { LeadNotFoundScreen } from "@/components/LeadNotFoundScreen";
 
 import { fetchLeadContext } from "@/services/leadContextService";
-import { orderLinesService } from "@/services/orderLinesService";
+import { fetchDressReservations } from "@/services/dressReservationsService";
 import { validateSubmission } from "@/lib/validation";
 import { buildWebhookPayload, submitToWebhook } from "@/lib/webhook";
 import type {
@@ -42,16 +42,23 @@ export function RequestPage() {
   const navigate = useNavigate();
   const recordId = (searchParams.get("record_id") ?? "").trim();
 
-  const submitWebhookUrl = import.meta.env.VITE_MAKE_WEBHOOK_URL as
+  const submitWebhookUrl = import.meta.env.VITE_MAKE_SUBMIT_WEBHOOK_URL as
     | string
     | undefined;
   const dressesWebhookUrl = import.meta.env.VITE_MAKE_DRESSES_WEBHOOK_URL as
     | string
     | undefined;
+  const reservationsWebhookUrl = import.meta.env
+    .VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL as string | undefined;
 
   const [user, setUser] = useState<LeadUser | null>(null);
   const [dresses, setDresses] = useState<Dress[]>([]);
-  const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
+  const [reservations, setReservations] = useState<Map<string, OrderLine[]>>(
+    new Map()
+  );
+  const [loadingDressIds, setLoadingDressIds] = useState<Set<string>>(
+    new Set()
+  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [loadKey, setLoadKey] = useState(0);
@@ -62,22 +69,23 @@ export function RequestPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!recordId || !submitWebhookUrl || !dressesWebhookUrl) {
+    if (
+      !recordId ||
+      !submitWebhookUrl ||
+      !dressesWebhookUrl ||
+      !reservationsWebhookUrl
+    ) {
       setLoading(false);
       return;
     }
     let mounted = true;
     setLoading(true);
     setLoadError(false);
-    Promise.all([
-      fetchLeadContext(dressesWebhookUrl, recordId),
-      orderLinesService.listAllOrderLines(),
-    ])
-      .then(([ctx, ol]) => {
+    fetchLeadContext(dressesWebhookUrl, recordId)
+      .then((ctx) => {
         if (!mounted) return;
         setUser(ctx.user);
         setDresses(ctx.dresses);
-        setOrderLines(ol);
       })
       .catch((err) => {
         if (!mounted) return;
@@ -90,7 +98,49 @@ export function RequestPage() {
     return () => {
       mounted = false;
     };
-  }, [recordId, submitWebhookUrl, dressesWebhookUrl, loadKey]);
+  }, [recordId, submitWebhookUrl, dressesWebhookUrl, reservationsWebhookUrl, loadKey]);
+
+  const ensureReservations = useCallback(
+    async (dressId: string, dressName: string) => {
+      if (!reservationsWebhookUrl) return;
+      setReservations((prevMap) => {
+        if (prevMap.has(dressId)) return prevMap;
+        setLoadingDressIds((prevLoading) => {
+          if (prevLoading.has(dressId)) return prevLoading;
+          const nextLoading = new Set(prevLoading);
+          nextLoading.add(dressId);
+          fetchDressReservations(reservationsWebhookUrl, dressId, dressName)
+            .then((lines) => {
+              setReservations((m) => {
+                const next = new Map(m);
+                next.set(dressId, lines);
+                return next;
+              });
+            })
+            .catch((err) => {
+              console.error("Failed to load dress reservations", err);
+              toast.error("טעינת זמינות השמלה נכשלה. אנא נסו שוב.");
+            })
+            .finally(() => {
+              setLoadingDressIds((s) => {
+                const next = new Set(s);
+                next.delete(dressId);
+                return next;
+              });
+            });
+          return nextLoading;
+        });
+        return prevMap;
+      });
+    },
+    [reservationsWebhookUrl]
+  );
+
+  const allReservations = useMemo(() => {
+    const flat: OrderLine[] = [];
+    for (const lines of reservations.values()) flat.push(...lines);
+    return flat;
+  }, [reservations]);
 
   const errorsByIndex = useMemo(() => {
     const map = new Map<number, ValidationError[]>();
@@ -110,7 +160,7 @@ export function RequestPage() {
     return <MissingRecordIdScreen />;
   }
 
-  if (!submitWebhookUrl || !dressesWebhookUrl) {
+  if (!submitWebhookUrl || !dressesWebhookUrl || !reservationsWebhookUrl) {
     return <MissingWebhookScreen />;
   }
 
@@ -123,9 +173,17 @@ export function RequestPage() {
   }
 
   const updateRow = (index: number, next: DressSelection) => {
-    setSelections((prev) =>
-      prev.map((row, i) => (i === index ? next : row))
-    );
+    setSelections((prev) => {
+      const previousDressId = prev[index]?.dressId;
+      const updated = prev.map((row, i) => (i === index ? next : row));
+      if (next.dressId && next.dressId !== previousDressId) {
+        const dress = dresses.find((d) => d.id === next.dressId);
+        if (dress) {
+          void ensureReservations(dress.id, dress.name);
+        }
+      }
+      return updated;
+    });
   };
 
   const removeRow = (index: number) => {
@@ -141,7 +199,7 @@ export function RequestPage() {
 
     const result = validateSubmission(
       { recordId, selections },
-      orderLines
+      allReservations
     );
 
     setErrors(result.errors);
@@ -210,7 +268,10 @@ export function RequestPage() {
                       index={index}
                       value={row}
                       dresses={dresses}
-                      orderLines={orderLines}
+                      orderLines={allReservations}
+                      isReservationsLoading={
+                        Boolean(row.dressId) && loadingDressIds.has(row.dressId)
+                      }
                       errors={errorsByIndex.get(index) ?? []}
                       canRemove={selections.length > 1}
                       onChange={(next) => updateRow(index, next)}

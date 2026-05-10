@@ -1,7 +1,6 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -16,7 +15,6 @@ interface LocationState {
 }
 
 export function ThankYouPage() {
-  const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as LocationState | null;
   const summary = state?.summary;
@@ -54,15 +52,6 @@ export function ThankYouPage() {
               </ul>
             </div>
           )}
-
-          <div className="flex justify-center">
-            <Button
-              onClick={() => navigate(-1)}
-              variant="outline"
-            >
-              חזרה להתחלה
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </div>

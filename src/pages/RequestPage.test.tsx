@@ -10,6 +10,7 @@ import { pickFromSelect } from "@/test/selectHelpers";
 
 const SUBMIT_URL = "https://hook.example.com/submit";
 const DRESSES_URL = "https://hook.example.com/dresses";
+const RESERVATIONS_URL = "https://hook.example.com/reservations";
 
 const DRESS_NAMES = {
   "dress-001": "שמלת ערב כחולה",
@@ -35,9 +36,48 @@ const DEFAULT_LEAD_CONTEXT = {
   ],
 };
 
+interface ReservationFixture {
+  id: string;
+  startDate: string;
+  endDate: string;
+}
+
+const RESERVATIONS_BY_DRESS: Record<string, ReservationFixture[]> = {
+  "dress-001": [
+    { id: "ol-1", startDate: "2026-06-01", endDate: "2026-06-05" },
+    { id: "ol-2", startDate: "2026-07-15", endDate: "2026-07-20" },
+  ],
+  "dress-002": [
+    { id: "ol-3", startDate: "2026-06-10", endDate: "2026-06-14" },
+  ],
+  "dress-005": [],
+};
+
+function reservationsResponseFor(dressId: string) {
+  const lines = RESERVATIONS_BY_DRESS[dressId] ?? [];
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({
+      orders: lines.map((l) => ({
+        id: l.id,
+        data: {
+          dress: dressId,
+          start_rent_date: l.startDate,
+          end_rent_date: l.endDate,
+        },
+      })),
+    }),
+  } as unknown as Response;
+}
+
 interface FetchOverrides {
   dresses?: () => Response | Promise<Response>;
   submit?: () => Response | Promise<Response>;
+  reservations?: (
+    dressId: string,
+    dressName: string
+  ) => Response | Promise<Response>;
 }
 
 function installFetchMock(overrides: FetchOverrides = {}) {
@@ -51,13 +91,27 @@ function installFetchMock(overrides: FetchOverrides = {}) {
       }) as unknown as Response);
   const submitHandler =
     overrides.submit ?? (() => ({ ok: true, status: 200 } as Response));
+  const reservationsHandler =
+    overrides.reservations ??
+    ((dressId: string) => reservationsResponseFor(dressId));
 
-  globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
-    const url = typeof input === "string" ? input : input.toString();
-    if (url === DRESSES_URL) return dressesHandler();
-    if (url === SUBMIT_URL) return submitHandler();
-    throw new Error(`Unexpected fetch URL in test: ${url}`);
-  }) as typeof globalThis.fetch;
+  globalThis.fetch = vi.fn(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url === DRESSES_URL) return dressesHandler();
+      if (url === SUBMIT_URL) return submitHandler();
+      if (url === RESERVATIONS_URL) {
+        const body = init?.body
+          ? (JSON.parse(init.body as string) as {
+              dress_id: string;
+              dress_name: string;
+            })
+          : { dress_id: "", dress_name: "" };
+        return reservationsHandler(body.dress_id, body.dress_name);
+      }
+      throw new Error(`Unexpected fetch URL in test: ${url}`);
+    }
+  ) as typeof globalThis.fetch;
 }
 
 const renderApp = (initialUrl: string) =>
@@ -70,14 +124,23 @@ const renderApp = (initialUrl: string) =>
     </MemoryRouter>
   );
 
+async function waitForReservationsLoaded(rowIndex = 0) {
+  await waitFor(() => {
+    expect(
+      screen.queryByTestId(`reservations-loading-${rowIndex}`)
+    ).not.toBeInTheDocument();
+  });
+}
+
 describe("RequestPage", () => {
   const originalFetch = globalThis.fetch;
   const FIXED_NOW = new Date(2026, 4, 1, 12, 0, 0); // 1 May 2026 local
 
   beforeEach(() => {
     vi.useFakeTimers({ now: FIXED_NOW, shouldAdvanceTime: true });
-    vi.stubEnv("VITE_MAKE_WEBHOOK_URL", SUBMIT_URL);
+    vi.stubEnv("VITE_MAKE_SUBMIT_WEBHOOK_URL", SUBMIT_URL);
     vi.stubEnv("VITE_MAKE_DRESSES_WEBHOOK_URL", DRESSES_URL);
+    vi.stubEnv("VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL", RESERVATIONS_URL);
     installFetchMock();
   });
 
@@ -121,6 +184,7 @@ describe("RequestPage", () => {
       screen.getByLabelText(/^שמלה$/),
       DRESS_NAMES["dress-001"]
     );
+    await waitForReservationsLoaded();
     await pickDate(user, screen.getByLabelText(/תאריך התחלה/), "2026-12-01");
     await pickDate(user, screen.getByLabelText(/תאריך סיום/), "2026-12-05");
 
@@ -161,6 +225,7 @@ describe("RequestPage", () => {
 
     const firstDressSelect = screen.getAllByLabelText(/^שמלה$/)[0];
     await pickFromSelect(user, firstDressSelect, DRESS_NAMES["dress-001"]);
+    await waitForReservationsLoaded(0);
     await pickDate(
       user,
       screen.getAllByLabelText(/תאריך התחלה/)[0],
@@ -178,6 +243,7 @@ describe("RequestPage", () => {
 
     const secondDressSelect = screen.getAllByLabelText(/^שמלה$/)[1];
     await pickFromSelect(user, secondDressSelect, DRESS_NAMES["dress-002"]);
+    await waitForReservationsLoaded(1);
     await pickDate(
       user,
       screen.getAllByLabelText(/תאריך התחלה/)[1],
@@ -238,6 +304,7 @@ describe("RequestPage", () => {
       screen.getByLabelText(/^שמלה$/),
       DRESS_NAMES["dress-001"]
     );
+    await waitForReservationsLoaded();
 
     await user.click(screen.getByRole("button", { name: /שליחת הבקשה/i }));
 
@@ -263,6 +330,7 @@ describe("RequestPage", () => {
       screen.getByLabelText(/^שמלה$/),
       DRESS_NAMES["dress-001"]
     );
+    await waitForReservationsLoaded();
 
     // Pick a valid (available) range — outside any booking and in the future.
     await pickDate(user, screen.getByLabelText(/תאריך התחלה/), "2026-12-01");
@@ -325,12 +393,13 @@ describe("RequestPage", () => {
     renderApp("/?record_id=rec_123");
 
     await screen.findByLabelText(/^שמלה$/);
-    // dress-005 has no order lines in the mock data
+    // dress-005 has no order lines in the fixture
     await pickFromSelect(
       user,
       screen.getByLabelText(/^שמלה$/),
       DRESS_NAMES["dress-005"]
     );
+    await waitForReservationsLoaded();
     await pickDate(user, screen.getByLabelText(/תאריך התחלה/), "2026-06-01");
     await pickDate(user, screen.getByLabelText(/תאריך סיום/), "2026-06-05");
 
@@ -367,6 +436,7 @@ describe("RequestPage", () => {
       screen.getByLabelText(/^שמלה$/),
       DRESS_NAMES["dress-001"]
     );
+    await waitForReservationsLoaded();
 
     // dress-001 has a booking 2026-06-01..2026-06-05
     await expectDateDisabled(
@@ -387,6 +457,7 @@ describe("RequestPage", () => {
       screen.getByLabelText(/^שמלה$/),
       DRESS_NAMES["dress-001"]
     );
+    await waitForReservationsLoaded();
 
     // FIXED_NOW is 2026-05-01; 2026-04-15 is in the past.
     await expectDateDisabled(
@@ -407,6 +478,7 @@ describe("RequestPage", () => {
       screen.getByLabelText(/^שמלה$/),
       DRESS_NAMES["dress-001"]
     );
+    await waitForReservationsLoaded();
 
     // dress-001 has a booking 2026-06-01..2026-06-05.
     // Pick start before the booking; end on the far side should be disabled.
@@ -479,6 +551,95 @@ describe("RequestPage", () => {
       screen.queryByRole("heading", { name: /בקשת השכרת שמלות/i })
     ).not.toBeInTheDocument();
   });
+
+  it("calls the reservations webhook with the picked dress id and name", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderApp("/?record_id=rec_123");
+
+    await screen.findByLabelText(/^שמלה$/);
+    await pickFromSelect(
+      user,
+      screen.getByLabelText(/^שמלה$/),
+      DRESS_NAMES["dress-001"]
+    );
+
+    await waitFor(() => {
+      const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls.some(([u]) => u === RESERVATIONS_URL)).toBe(true);
+    });
+
+    const reservationsCall = (
+      globalThis.fetch as ReturnType<typeof vi.fn>
+    ).mock.calls.find(([u]) => u === RESERVATIONS_URL)!;
+    const body = JSON.parse((reservationsCall[1] as RequestInit).body as string);
+    expect(body).toEqual({
+      dress_id: "dress-001",
+      dress_name: DRESS_NAMES["dress-001"],
+    });
+  });
+
+  it("does not refetch reservations when the same dress is picked in two rows", async () => {
+    let callCount = 0;
+    installFetchMock({
+      reservations: (dressId) => {
+        callCount += 1;
+        return reservationsResponseFor(dressId);
+      },
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderApp("/?record_id=rec_123");
+
+    await screen.findByLabelText(/^שמלה$/);
+
+    await pickFromSelect(
+      user,
+      screen.getAllByLabelText(/^שמלה$/)[0],
+      DRESS_NAMES["dress-001"]
+    );
+    await waitForReservationsLoaded(0);
+
+    await user.click(
+      screen.getByRole("button", { name: /הוספת שמלה נוספת/ })
+    );
+
+    await pickFromSelect(
+      user,
+      screen.getAllByLabelText(/^שמלה$/)[1],
+      DRESS_NAMES["dress-001"]
+    );
+
+    // Give the second pick a chance to (not) fire a fetch.
+    await waitFor(() => {
+      expect(screen.getAllByLabelText(/^שמלה$/)[1]).toHaveTextContent(
+        DRESS_NAMES["dress-001"]
+      );
+    });
+
+    expect(callCount).toBe(1);
+  });
+
+  it("disables date pickers and shows a loading hint while reservations are in flight", async () => {
+    installFetchMock({
+      reservations: () => new Promise<Response>(() => {}),
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderApp("/?record_id=rec_123");
+
+    await screen.findByLabelText(/^שמלה$/);
+    await pickFromSelect(
+      user,
+      screen.getByLabelText(/^שמלה$/),
+      DRESS_NAMES["dress-001"]
+    );
+
+    expect(
+      await screen.findByTestId("reservations-loading-0")
+    ).toHaveTextContent(/טוען זמינות/);
+    expect(screen.getByLabelText(/תאריך התחלה/)).toBeDisabled();
+    expect(screen.getByLabelText(/תאריך סיום/)).toBeDisabled();
+  });
 });
 
 describe("RequestPage missing webhook configuration", () => {
@@ -487,8 +648,9 @@ describe("RequestPage missing webhook configuration", () => {
   });
 
   it("shows the configuration error screen when the submit webhook url is missing", () => {
-    vi.stubEnv("VITE_MAKE_WEBHOOK_URL", "");
+    vi.stubEnv("VITE_MAKE_SUBMIT_WEBHOOK_URL", "");
     vi.stubEnv("VITE_MAKE_DRESSES_WEBHOOK_URL", DRESSES_URL);
+    vi.stubEnv("VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL", RESERVATIONS_URL);
     renderApp("/?record_id=rec_123");
     expect(
       screen.getByText(/כתובת ה־webhook אינה מוגדרת/)
@@ -496,8 +658,19 @@ describe("RequestPage missing webhook configuration", () => {
   });
 
   it("shows the configuration error screen when the dresses webhook url is missing", () => {
-    vi.stubEnv("VITE_MAKE_WEBHOOK_URL", SUBMIT_URL);
+    vi.stubEnv("VITE_MAKE_SUBMIT_WEBHOOK_URL", SUBMIT_URL);
     vi.stubEnv("VITE_MAKE_DRESSES_WEBHOOK_URL", "");
+    vi.stubEnv("VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL", RESERVATIONS_URL);
+    renderApp("/?record_id=rec_123");
+    expect(
+      screen.getByText(/כתובת ה־webhook אינה מוגדרת/)
+    ).toBeInTheDocument();
+  });
+
+  it("shows the configuration error screen when the reservations webhook url is missing", () => {
+    vi.stubEnv("VITE_MAKE_SUBMIT_WEBHOOK_URL", SUBMIT_URL);
+    vi.stubEnv("VITE_MAKE_DRESSES_WEBHOOK_URL", DRESSES_URL);
+    vi.stubEnv("VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL", "");
     renderApp("/?record_id=rec_123");
     expect(
       screen.getByText(/כתובת ה־webhook אינה מוגדרת/)
