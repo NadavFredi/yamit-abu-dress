@@ -100,6 +100,19 @@ describe("fetchDressReservations", () => {
     expect(first).toEqual(second);
   });
 
+  it("does not deduplicate requests for different webhook URLs", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      okJson(realResponseSample)
+    );
+
+    await Promise.all([
+      fetchDressReservations("https://hook.example.com/a", "dress-001", "שמלה"),
+      fetchDressReservations("https://hook.example.com/b", "dress-001", "שמלה"),
+    ]);
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("maps a real-shape response to OrderLine[]", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       okJson(realResponseSample)
@@ -160,12 +173,32 @@ describe("fetchDressReservations", () => {
     );
   });
 
+  it("throws when the response root is not an object", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      okJson(null)
+    );
+
+    await expect(fetchDressReservations(URL, "d1", "name")).rejects.toThrow(
+      /shape/i
+    );
+  });
+
   it("throws when body is not valid JSON", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       okText("not json")
     );
     await expect(fetchDressReservations(URL, "d1", "name")).rejects.toThrow(
       /json/i
+    );
+  });
+
+  it("rejects when fetch itself fails", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new TypeError("Network failed")
+    );
+
+    await expect(fetchDressReservations(URL, "d1", "name")).rejects.toThrow(
+      /network failed/i
     );
   });
 

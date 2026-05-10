@@ -62,6 +62,17 @@ describe("buildWebhookPayload", () => {
     });
     expect(payload.selected_dresses[0].dress_name).toBeNull();
   });
+
+  it("supports an empty selection list", () => {
+    const payload = buildWebhookPayload({
+      recordId: "rec_123",
+      selections: [],
+      dresses,
+      now: new Date("2026-05-07T10:00:00.000Z"),
+    });
+
+    expect(payload.selected_dresses).toEqual([]);
+  });
 });
 
 describe("submitToWebhook", () => {
@@ -132,5 +143,24 @@ describe("submitToWebhook", () => {
     await expect(
       submitToWebhook("https://hook.example.com/abc", payload)
     ).rejects.toThrow();
+  });
+
+  it("rejects when fetch itself fails", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new TypeError("Network failed")
+    );
+
+    const payload = buildWebhookPayload({
+      recordId: "rec_123",
+      selections: [
+        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05" },
+      ],
+      dresses,
+      now: new Date(),
+    });
+
+    await expect(
+      submitToWebhook("https://hook.example.com/abc", payload)
+    ).rejects.toThrow(/network failed/i);
   });
 });

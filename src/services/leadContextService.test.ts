@@ -108,6 +108,19 @@ describe("fetchLeadContext", () => {
     expect(first).toEqual(second);
   });
 
+  it("does not deduplicate requests for different webhook URLs", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      okJson(realResponseSample)
+    );
+
+    await Promise.all([
+      fetchLeadContext("https://hook.example.com/dresses-a", "rec_abc"),
+      fetchLeadContext("https://hook.example.com/dresses-b", "rec_abc"),
+    ]);
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("maps a real-shape response to user + dresses", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       okJson(realResponseSample)
@@ -161,12 +174,30 @@ describe("fetchLeadContext", () => {
     await expect(fetchLeadContext(URL, "rec_abc")).rejects.toThrow(/items/i);
   });
 
+  it("throws when the response root is not an object", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      okJson(null)
+    );
+
+    await expect(fetchLeadContext(URL, "rec_abc")).rejects.toThrow(/shape/i);
+  });
+
   it("throws when the body is not valid JSON", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       okText("not json")
     );
 
     await expect(fetchLeadContext(URL, "rec_abc")).rejects.toThrow(/json/i);
+  });
+
+  it("rejects when fetch itself fails", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new TypeError("Network failed")
+    );
+
+    await expect(fetchLeadContext(URL, "rec_abc")).rejects.toThrow(
+      /network failed/i
+    );
   });
 
   it("skips items missing id or data.name; keeps the rest", async () => {
