@@ -1,10 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { validateSubmission } from "./validation";
-import type { OrderLine } from "@/types/domain";
+import type { Dress, OrderLine } from "@/types/domain";
 
 const orderLines: OrderLine[] = [
   { id: "ol1", dressId: "d1", startDate: "2026-06-01", endDate: "2026-06-05" },
   { id: "ol2", dressId: "d2", startDate: "2026-06-10", endDate: "2026-06-15" },
+];
+
+const dressesWithInventory: Dress[] = [
+  { id: "d1", name: "d1", inventory: 3 },
+  { id: "d2", name: "d2", inventory: null },
 ];
 
 describe("validateSubmission", () => {
@@ -13,7 +18,7 @@ describe("validateSubmission", () => {
       {
         recordId: "rec_123",
         selections: [
-          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05" },
+          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
         ],
       },
       orderLines
@@ -27,8 +32,8 @@ describe("validateSubmission", () => {
       {
         recordId: "rec_123",
         selections: [
-          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05" },
-          { dressId: "d2", startDate: "2026-08-01", endDate: "2026-08-05" },
+          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
+          { dressId: "d2", startDate: "2026-08-01", endDate: "2026-08-05", quantity: 1 },
         ],
       },
       orderLines
@@ -41,7 +46,7 @@ describe("validateSubmission", () => {
       {
         recordId: null,
         selections: [
-          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05" },
+          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
         ],
       },
       orderLines
@@ -55,7 +60,7 @@ describe("validateSubmission", () => {
       {
         recordId: "   ",
         selections: [
-          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05" },
+          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
         ],
       },
       orderLines
@@ -78,7 +83,7 @@ describe("validateSubmission", () => {
       {
         recordId: "rec_123",
         selections: [
-          { dressId: "", startDate: "2026-07-01", endDate: "2026-07-05" },
+          { dressId: "", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
         ],
       },
       orderLines
@@ -91,7 +96,7 @@ describe("validateSubmission", () => {
     const result = validateSubmission(
       {
         recordId: "rec_123",
-        selections: [{ dressId: "d1", startDate: "", endDate: "2026-07-05" }],
+        selections: [{ dressId: "d1", startDate: "", endDate: "2026-07-05", quantity: 1 }],
       },
       orderLines
     );
@@ -103,7 +108,7 @@ describe("validateSubmission", () => {
     const result = validateSubmission(
       {
         recordId: "rec_123",
-        selections: [{ dressId: "d1", startDate: "2026-07-01", endDate: "" }],
+        selections: [{ dressId: "d1", startDate: "2026-07-01", endDate: "", quantity: 1 }],
       },
       orderLines
     );
@@ -116,7 +121,7 @@ describe("validateSubmission", () => {
       {
         recordId: "rec_123",
         selections: [
-          { dressId: "d1", startDate: "2026-07-10", endDate: "2026-07-05" },
+          { dressId: "d1", startDate: "2026-07-10", endDate: "2026-07-05", quantity: 1 },
         ],
       },
       orderLines
@@ -130,7 +135,7 @@ describe("validateSubmission", () => {
       {
         recordId: "rec_123",
         selections: [
-          { dressId: "d1", startDate: "2026-06-04", endDate: "2026-06-08" },
+          { dressId: "d1", startDate: "2026-06-04", endDate: "2026-06-08", quantity: 1 },
         ],
       },
       orderLines
@@ -144,7 +149,7 @@ describe("validateSubmission", () => {
       {
         recordId: "rec_123",
         selections: [
-          { dressId: "d1", startDate: "2026-06-10", endDate: "2026-06-15" },
+          { dressId: "d1", startDate: "2026-06-10", endDate: "2026-06-15", quantity: 1 },
         ],
       },
       orderLines
@@ -157,8 +162,8 @@ describe("validateSubmission", () => {
       {
         recordId: "rec_123",
         selections: [
-          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05" },
-          { dressId: "d1", startDate: "2026-08-01", endDate: "2026-08-05" },
+          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
+          { dressId: "d1", startDate: "2026-08-01", endDate: "2026-08-05", quantity: 1 },
         ],
       },
       orderLines
@@ -172,8 +177,8 @@ describe("validateSubmission", () => {
       {
         recordId: "rec_123",
         selections: [
-          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05" },
-          { dressId: "", startDate: "2026-07-10", endDate: "2026-07-12" },
+          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
+          { dressId: "", startDate: "2026-07-10", endDate: "2026-07-12", quantity: 1 },
         ],
       },
       orderLines
@@ -181,5 +186,49 @@ describe("validateSubmission", () => {
     expect(result.ok).toBe(false);
     const rowErr = result.errors.find((e) => e.code === "missing_dress");
     expect(rowErr?.index).toBe(1);
+  });
+
+  it("blocks when quantity exceeds the dress inventory", () => {
+    const result = validateSubmission(
+      {
+        recordId: "rec_123",
+        selections: [
+          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 5 },
+        ],
+      },
+      orderLines,
+      dressesWithInventory
+    );
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((e) => e.code === "invalid_quantity")).toBe(true);
+  });
+
+  it("blocks when quantity is zero or non-integer", () => {
+    const result = validateSubmission(
+      {
+        recordId: "rec_123",
+        selections: [
+          { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 0 },
+        ],
+      },
+      orderLines,
+      dressesWithInventory
+    );
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((e) => e.code === "invalid_quantity")).toBe(true);
+  });
+
+  it("does not block when inventory is null and any positive quantity is requested", () => {
+    const result = validateSubmission(
+      {
+        recordId: "rec_123",
+        selections: [
+          { dressId: "d2", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 50 },
+        ],
+      },
+      orderLines,
+      dressesWithInventory
+    );
+    expect(result.ok).toBe(true);
   });
 });

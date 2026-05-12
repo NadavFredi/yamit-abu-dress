@@ -1,6 +1,7 @@
 import { Trash2, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { DressCombobox } from "@/components/DressCombobox";
 import { findConflicts } from "@/lib/dateOverlap";
@@ -38,7 +39,10 @@ const errorCodeToField: Record<ValidationError["code"], string | null> = {
   end_before_start: "end",
   date_conflict: "range",
   duplicate_dress: "dress",
+  invalid_quantity: "quantity",
 };
+
+const QUANTITY_FALLBACK_MAX = 99;
 
 type LiveStatus =
   | { kind: "idle" }
@@ -113,12 +117,21 @@ export function DressRow({
   const dressId = `dress-${index}`;
   const startId = `start-${index}`;
   const endId = `end-${index}`;
+  const qtyId = `qty-${index}`;
 
   const reservationsForDress = value.dressId
     ? orderLines.filter((l) => l.dressId === value.dressId)
     : [];
 
   const dressChosen = Boolean(value.dressId);
+  const selectedDress = value.dressId
+    ? dresses.find((d) => d.id === value.dressId)
+    : undefined;
+  const inventoryCap =
+    selectedDress && typeof selectedDress.inventory === "number"
+      ? selectedDress.inventory
+      : null;
+  const quantityMax = inventoryCap ?? QUANTITY_FALLBACK_MAX;
   const reservationsReady = dressChosen && !isReservationsLoading;
   const todayIso = todayIsoLocal();
   const startDateState = reservationsReady
@@ -152,20 +165,63 @@ export function DressRow({
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1.5">
           <Label htmlFor={dressId}>שמלה</Label>
           <DressCombobox
             id={dressId}
             value={value.dressId}
-            selectedName={
-              dresses.find((d) => d.id === value.dressId)?.name
-            }
+            selectedName={selectedDress?.name}
             dresses={dresses}
-            onChange={(dress) => onChange({ ...value, dressId: dress.id })}
+            onChange={(dress) => {
+              const nextInventoryCap =
+                typeof dress.inventory === "number" ? dress.inventory : null;
+              const nextMax = nextInventoryCap ?? QUANTITY_FALLBACK_MAX;
+              const clampedQty = Math.min(
+                Math.max(value.quantity || 1, 1),
+                Math.max(nextMax, 1)
+              );
+              onChange({ ...value, dressId: dress.id, quantity: clampedQty });
+            }}
             aria-invalid={Boolean(errorsByField.dress)}
           />
           {errorsByField.dress?.map((e) => (
+            <p key={e.code} className="text-xs text-destructive">
+              {e.message}
+            </p>
+          ))}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor={qtyId}>כמות</Label>
+          <Input
+            id={qtyId}
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={quantityMax}
+            step={1}
+            value={value.quantity}
+            disabled={!dressChosen}
+            aria-invalid={Boolean(errorsByField.quantity)}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw === "") {
+                onChange({ ...value, quantity: 1 });
+                return;
+              }
+              const parsed = Number.parseInt(raw, 10);
+              if (!Number.isFinite(parsed)) return;
+              const clamped = Math.min(Math.max(parsed, 1), quantityMax);
+              onChange({ ...value, quantity: clamped });
+            }}
+          />
+          {dressChosen && inventoryCap !== null && (
+            <p className="text-xs text-muted-foreground">
+              מלאי זמין: {inventoryCap}
+            </p>
+          )}
+          {errorsByField.quantity?.map((e) => (
             <p key={e.code} className="text-xs text-destructive">
               {e.message}
             </p>

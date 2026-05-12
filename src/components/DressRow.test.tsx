@@ -12,8 +12,8 @@ import type {
 } from "@/types/domain";
 
 const dresses: Dress[] = [
-  { id: "dress-1", name: "שמלה אדומה" },
-  { id: "dress-2", name: "שמלה כחולה" },
+  { id: "dress-1", name: "שמלה אדומה", inventory: null },
+  { id: "dress-2", name: "שמלה כחולה", inventory: null },
 ];
 
 const orderLines: OrderLine[] = [
@@ -30,7 +30,7 @@ function renderRow(
 ) {
   const props: React.ComponentProps<typeof DressRow> = {
     index: 0,
-    value: { dressId: "", startDate: "", endDate: "" },
+    value: { dressId: "", startDate: "", endDate: "", quantity: 1 },
     dresses,
     orderLines,
     isReservationsLoading: false,
@@ -85,12 +85,13 @@ describe("DressRow", () => {
       dressId: "dress-2",
       startDate: "",
       endDate: "",
+      quantity: 1,
     });
   });
 
   it("disables date pickers and shows a loading hint while reservations load", () => {
     renderRow({
-      value: { dressId: "dress-1", startDate: "", endDate: "" },
+      value: { dressId: "dress-1", startDate: "", endDate: "", quantity: 1 },
       isReservationsLoading: true,
     });
 
@@ -105,7 +106,7 @@ describe("DressRow", () => {
   it("enables date pickers and shows the calendar legend when reservations are ready", async () => {
     const user = userEvent.setup();
     renderRow({
-      value: { dressId: "dress-1", startDate: "", endDate: "" },
+      value: { dressId: "dress-1", startDate: "", endDate: "", quantity: 1 },
     });
 
     expect(screen.getByLabelText(/תאריך התחלה/)).not.toBeDisabled();
@@ -126,6 +127,7 @@ describe("DressRow", () => {
       dressId: "dress-1",
       startDate: "",
       endDate: "",
+      quantity: 1,
     };
     renderRow({ value, onChange });
 
@@ -143,6 +145,7 @@ describe("DressRow", () => {
         dressId: "dress-1",
         startDate: "2026-06-20",
         endDate: "2026-06-22",
+        quantity: 1,
       },
     });
 
@@ -159,6 +162,7 @@ describe("DressRow", () => {
         dressId: "dress-1",
         startDate: "2026-06-12",
         endDate: "2026-06-16",
+        quantity: 1,
       },
     });
 
@@ -176,10 +180,40 @@ describe("DressRow", () => {
         dressId: "dress-1",
         startDate: "2026-06-20",
         endDate: "2026-06-10",
+        quantity: 1,
       },
     });
 
     expect(screen.queryByTestId("availability-0")).not.toBeInTheDocument();
+  });
+
+  it("disables the quantity input until a dress is picked", () => {
+    renderRow();
+    expect(screen.getByLabelText(/כמות/)).toBeDisabled();
+  });
+
+  it("clamps quantity to the inventory cap and emits the clamped value", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const dressesWithCap: Dress[] = [
+      { id: "dress-1", name: "שמלה אדומה", inventory: 3 },
+    ];
+    renderRow({
+      dresses: dressesWithCap,
+      value: { dressId: "dress-1", startDate: "", endDate: "", quantity: 1 },
+      onChange,
+    });
+
+    const qty = screen.getByLabelText(/כמות/) as HTMLInputElement;
+    expect(qty.max).toBe("3");
+    expect(screen.getByText(/מלאי זמין: 3/)).toBeInTheDocument();
+
+    await user.clear(qty);
+    await user.type(qty, "9");
+
+    const lastCall = onChange.mock.calls.at(-1)?.[0];
+    expect(lastCall.quantity).toBeLessThanOrEqual(3);
+    expect(lastCall.quantity).toBeGreaterThanOrEqual(1);
   });
 
   it("renders field and range validation errors in the right places", () => {

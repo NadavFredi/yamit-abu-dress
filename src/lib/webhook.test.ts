@@ -3,8 +3,8 @@ import { buildWebhookPayload, submitToWebhook } from "./webhook";
 import type { Dress, DressSelection } from "@/types/domain";
 
 const dresses: Dress[] = [
-  { id: "d1", name: "שמלת ערב כחולה" },
-  { id: "d2", name: "שמלת חתונה לבנה" },
+  { id: "d1", name: "שמלת ערב כחולה", inventory: null },
+  { id: "d2", name: "שמלת חתונה לבנה", inventory: null },
 ];
 
 describe("buildWebhookPayload", () => {
@@ -12,7 +12,7 @@ describe("buildWebhookPayload", () => {
     const payload = buildWebhookPayload({
       recordId: "rec_123",
       selections: [
-        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05" },
+        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
       ],
       dresses,
       now: new Date("2026-05-07T10:00:00.000Z"),
@@ -25,8 +25,8 @@ describe("buildWebhookPayload", () => {
 
   it("maps each selection into the dress payload with name resolved", () => {
     const selections: DressSelection[] = [
-      { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05" },
-      { dressId: "d2", startDate: "2026-08-01", endDate: "2026-08-03" },
+      { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
+      { dressId: "d2", startDate: "2026-08-01", endDate: "2026-08-03", quantity: 1 },
     ];
     const payload = buildWebhookPayload({
       recordId: "rec_123",
@@ -41,12 +41,14 @@ describe("buildWebhookPayload", () => {
         dress_name: "שמלת ערב כחולה",
         start_date: "2026-07-01",
         end_date: "2026-07-05",
+        quantity: 1,
       },
       {
         dress_id: "d2",
         dress_name: "שמלת חתונה לבנה",
         start_date: "2026-08-01",
         end_date: "2026-08-03",
+        quantity: 1,
       },
     ]);
   });
@@ -55,7 +57,7 @@ describe("buildWebhookPayload", () => {
     const payload = buildWebhookPayload({
       recordId: "rec_123",
       selections: [
-        { dressId: "unknown", startDate: "2026-07-01", endDate: "2026-07-05" },
+        { dressId: "unknown", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
       ],
       dresses,
       now: new Date(),
@@ -95,7 +97,7 @@ describe("submitToWebhook", () => {
     const payload = buildWebhookPayload({
       recordId: "rec_123",
       selections: [
-        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05" },
+        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
       ],
       dresses,
       now: new Date(),
@@ -115,7 +117,7 @@ describe("submitToWebhook", () => {
     const payload = buildWebhookPayload({
       recordId: "rec_123",
       selections: [
-        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05" },
+        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
       ],
       dresses,
       now: new Date(),
@@ -134,7 +136,7 @@ describe("submitToWebhook", () => {
     const payload = buildWebhookPayload({
       recordId: "rec_123",
       selections: [
-        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05" },
+        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
       ],
       dresses,
       now: new Date(),
@@ -153,7 +155,7 @@ describe("submitToWebhook", () => {
     const payload = buildWebhookPayload({
       recordId: "rec_123",
       selections: [
-        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05" },
+        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
       ],
       dresses,
       now: new Date(),

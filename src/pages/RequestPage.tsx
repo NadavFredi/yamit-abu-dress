@@ -35,6 +35,7 @@ const emptySelection = (): DressSelection => ({
   dressId: "",
   startDate: "",
   endDate: "",
+  quantity: 1,
 });
 
 export function RequestPage() {
@@ -199,7 +200,8 @@ export function RequestPage() {
 
     const result = validateSubmission(
       { recordId, selections },
-      allReservations
+      allReservations,
+      dresses
     );
 
     setErrors(result.errors);

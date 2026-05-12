@@ -5,9 +5,9 @@ import { DressCombobox } from "./DressCombobox";
 import type { Dress } from "@/types/domain";
 
 const dresses: Dress[] = [
-  { id: "d1", name: "שמלה כתומה" },
-  { id: "d2", name: "שמלה ורודה" },
-  { id: "d3", name: "שמלה אדומה" },
+  { id: "d1", name: "שמלה כתומה", inventory: null },
+  { id: "d2", name: "שמלה ורודה", inventory: null },
+  { id: "d3", name: "שמלה אדומה", inventory: null },
 ];
 
 describe("DressCombobox", () => {
@@ -58,7 +58,11 @@ describe("DressCombobox", () => {
     );
     await user.click(screen.getByRole("button"));
     await user.click(await screen.findByRole("option", { name: "שמלה ורודה" }));
-    expect(onChange).toHaveBeenCalledWith({ id: "d2", name: "שמלה ורודה" });
+    expect(onChange).toHaveBeenCalledWith({
+      id: "d2",
+      name: "שמלה ורודה",
+      inventory: null,
+    });
   });
 
   it("shows the empty state when nothing matches the query", async () => {

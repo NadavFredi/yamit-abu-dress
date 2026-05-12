@@ -134,11 +134,13 @@ describe("fetchLeadContext", () => {
       id: "dfffa27b-6df8-4a31-a0ee-94a1a499143b",
       name: "שמלה כתומה",
       imageUrl: undefined,
+      inventory: null,
     });
     expect(ctx.dresses[1]).toEqual({
       id: "d956e6d3-2757-4003-a2d3-9904b01d485c",
       name: "שמלה ורודה",
       imageUrl: "https://cdn.example.com/pink.jpg",
+      inventory: null,
     });
   });
 
@@ -216,5 +218,33 @@ describe("fetchLeadContext", () => {
     const ctx = await fetchLeadContext(URL, "rec_abc");
 
     expect(ctx.dresses.map((d) => d.id)).toEqual(["good-1", "good-2"]);
+  });
+
+  it("parses data.inventory as number, numeric string, or null", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      okJson({
+        user: null,
+        items: [
+          { id: "a", data: { name: "A", inventory: 5 } },
+          { id: "b", data: { name: "B", inventory: "3" } },
+          { id: "c", data: { name: "C", inventory: null } },
+          { id: "d", data: { name: "D" } },
+          { id: "e", data: { name: "E", inventory: "not-a-number" } },
+          { id: "f", data: { name: "F", inventory: 2.7 } },
+        ],
+      })
+    );
+
+    const ctx = await fetchLeadContext(URL, "rec_abc");
+    const byId = Object.fromEntries(ctx.dresses.map((d) => [d.id, d.inventory]));
+
+    expect(byId).toEqual({
+      a: 5,
+      b: 3,
+      c: null,
+      d: null,
+      e: null,
+      f: 2,
+    });
   });
 });

@@ -25,6 +25,7 @@ export function buildWebhookPayload({
     dress_name: dressNameById.get(sel.dressId) ?? null,
     start_date: sel.startDate,
     end_date: sel.endDate,
+    quantity: sel.quantity,
   }));
 
   return {

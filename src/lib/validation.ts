@@ -1,4 +1,5 @@
 import type {
+  Dress,
   OrderLine,
   SubmissionInput,
   ValidationError,
@@ -8,9 +9,11 @@ import { hasConflict } from "./dateOverlap";
 
 export function validateSubmission(
   input: SubmissionInput,
-  orderLines: OrderLine[]
+  orderLines: OrderLine[],
+  dresses: Dress[] = []
 ): ValidationResult {
   const errors: ValidationError[] = [];
+  const dressById = new Map(dresses.map((d) => [d.id, d]));
 
   const recordId = (input.recordId ?? "").trim();
   if (!recordId) {
@@ -82,6 +85,30 @@ export function validateSubmission(
         index,
         message: `שורה ${index + 1}: התאריכים שנבחרו אינם זמינים לשמלה זו.`,
       });
+    }
+
+    if (
+      !Number.isInteger(row.quantity) ||
+      row.quantity < 1
+    ) {
+      errors.push({
+        code: "invalid_quantity",
+        index,
+        message: `שורה ${index + 1}: יש לבחור כמות חיובית.`,
+      });
+    } else if (row.dressId) {
+      const dress = dressById.get(row.dressId);
+      if (
+        dress &&
+        typeof dress.inventory === "number" &&
+        row.quantity > dress.inventory
+      ) {
+        errors.push({
+          code: "invalid_quantity",
+          index,
+          message: `שורה ${index + 1}: הכמות המבוקשת חורגת מהמלאי הזמין (${dress.inventory}).`,
+        });
+      }
     }
   });
 

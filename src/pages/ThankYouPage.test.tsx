@@ -26,6 +26,7 @@ const fakeSummary: WebhookPayload = {
       dress_name: "שמלת ערב כחולה",
       start_date: "2026-06-10",
       end_date: "2026-06-14",
+          quantity: 1,
     },
   ],
 };
@@ -59,6 +60,7 @@ describe("ThankYouPage – dress list", () => {
           dress_name: null,
           start_date: "2026-07-01",
           end_date: "2026-07-05",
+          quantity: 1,
         },
       ],
     };
@@ -75,12 +77,14 @@ describe("ThankYouPage – dress list", () => {
           dress_name: "שמלת ערב כחולה",
           start_date: "2026-06-10",
           end_date: "2026-06-14",
+          quantity: 1,
         },
         {
           dress_id: "dress-002",
           dress_name: "שמלת חתונה לבנה קלאסית",
           start_date: "2026-07-20",
           end_date: "2026-07-22",
+          quantity: 1,
         },
       ],
     };
