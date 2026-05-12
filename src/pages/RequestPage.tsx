@@ -21,6 +21,7 @@ import { LeadNotFoundScreen } from "@/components/LeadNotFoundScreen";
 
 import { fetchLeadContext } from "@/services/leadContextService";
 import { fetchDressReservations } from "@/services/dressReservationsService";
+import { appConfig } from "@/lib/appConfig";
 import { validateSubmission } from "@/lib/validation";
 import { buildWebhookPayload, submitToWebhook } from "@/lib/webhook";
 import type {
@@ -43,14 +44,9 @@ export function RequestPage() {
   const navigate = useNavigate();
   const recordId = (searchParams.get("record_id") ?? "").trim();
 
-  const submitWebhookUrl = import.meta.env.VITE_MAKE_SUBMIT_WEBHOOK_URL as
-    | string
-    | undefined;
-  const dressesWebhookUrl = import.meta.env.VITE_MAKE_DRESSES_WEBHOOK_URL as
-    | string
-    | undefined;
-  const reservationsWebhookUrl = import.meta.env
-    .VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL as string | undefined;
+  const submitWebhookUrl = appConfig.webhooks.submitUrl;
+  const dressesWebhookUrl = appConfig.webhooks.dressesUrl;
+  const reservationsWebhookUrl = appConfig.webhooks.reservationsUrl;
 
   const [user, setUser] = useState<LeadUser | null>(null);
   const [dresses, setDresses] = useState<Dress[]>([]);
