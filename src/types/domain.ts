@@ -3,6 +3,7 @@ export interface Dress {
   name: string;
   imageUrl?: string;
   description?: string;
+  inventory: number | null;
 }
 
 export interface OrderLine {
@@ -10,12 +11,14 @@ export interface OrderLine {
   dressId: string;
   startDate: string;
   endDate: string;
+  quantity: number;
 }
 
 export interface DressSelection {
   dressId: string;
   startDate: string;
   endDate: string;
+  quantity: number;
 }
 
 export interface SubmissionInput {
@@ -32,7 +35,8 @@ export interface ValidationError {
     | "missing_end_date"
     | "end_before_start"
     | "date_conflict"
-    | "duplicate_dress";
+    | "duplicate_dress"
+    | "invalid_quantity";
   index?: number;
   message: string;
 }
@@ -47,6 +51,7 @@ export interface WebhookDressPayload {
   dress_name: string | null;
   start_date: string;
   end_date: string;
+  quantity: number;
 }
 
 export interface WebhookPayload {

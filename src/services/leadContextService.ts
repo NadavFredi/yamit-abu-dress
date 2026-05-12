@@ -67,9 +67,21 @@ async function fetchLeadContextUncached(
     const picture = data?.picture;
     const imageUrl =
       typeof picture === "string" && picture.length > 0 ? picture : undefined;
-    dresses.push({ id, name, imageUrl });
+    const inventory = parseInventory(data?.inventory);
+    dresses.push({ id, name, imageUrl, inventory });
   }
 
   const user = (root.user ?? null) as LeadUser | null;
   return { user, dresses };
+}
+
+function parseInventory(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) {
+    return Math.floor(raw);
+  }
+  if (typeof raw === "string" && raw.trim() !== "") {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+  }
+  return null;
 }

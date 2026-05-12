@@ -134,11 +134,13 @@ describe("fetchLeadContext", () => {
       id: "dfffa27b-6df8-4a31-a0ee-94a1a499143b",
       name: "שמלה כתומה",
       imageUrl: undefined,
+      inventory: null,
     });
     expect(ctx.dresses[1]).toEqual({
       id: "d956e6d3-2757-4003-a2d3-9904b01d485c",
       name: "שמלה ורודה",
       imageUrl: "https://cdn.example.com/pink.jpg",
+      inventory: null,
     });
   });
 
@@ -216,5 +218,104 @@ describe("fetchLeadContext", () => {
     const ctx = await fetchLeadContext(URL, "rec_abc");
 
     expect(ctx.dresses.map((d) => d.id)).toEqual(["good-1", "good-2"]);
+  });
+
+  it("parses data.inventory as number, numeric string, or null", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      okJson({
+        user: null,
+        items: [
+          { id: "a", data: { name: "A", inventory: 5 } },
+          { id: "b", data: { name: "B", inventory: "3" } },
+          { id: "c", data: { name: "C", inventory: null } },
+          { id: "d", data: { name: "D" } },
+          { id: "e", data: { name: "E", inventory: "not-a-number" } },
+          { id: "f", data: { name: "F", inventory: 2.7 } },
+        ],
+      })
+    );
+
+    const ctx = await fetchLeadContext(URL, "rec_abc");
+    const byId = Object.fromEntries(ctx.dresses.map((d) => [d.id, d.inventory]));
+
+    expect(byId).toEqual({
+      a: 5,
+      b: 3,
+      c: null,
+      d: null,
+      e: null,
+      f: 2,
+    });
+  });
+
+  it("parses the real production response shape with populated inventory values", async () => {
+    const liveShape = {
+      user: {
+        id: "7bfde42c-5d00-49bd-9de3-9094e5d0f0ea",
+        entity_id: "8457cd25",
+        tenant_id: "9722e0f4",
+        display_name: "בדיקה",
+        data: { phone: "+972526861485", full_name: "בדיקה" },
+        computed: {},
+        created_at: "2026-05-07T06:36:21.393903+00:00",
+        updated_at: "2026-05-11T12:47:41.682308+00:00",
+        created_by: null,
+        updated_by: null,
+      },
+      items: [
+        {
+          id: "dfffa27b-6df8-4a31-a0ee-94a1a499143b",
+          data: {
+            name: "שמלה כתומה",
+            status: "0",
+            inventory: 3,
+            dress_type: "0",
+            daily_price: { amount: 100, currency_code: "ILS" },
+            picture: null,
+            dress_type_label: "שמלת ערב",
+            status_label: "פעיל",
+          },
+          name: null,
+          email: null,
+          __IMTINDEX__: 1,
+          __IMTLENGTH__: 3,
+        },
+        {
+          id: "d956e6d3-2757-4003-a2d3-9904b01d485c",
+          data: {
+            name: "שמלה ורודה",
+            status: "0",
+            inventory: 2,
+            picture: null,
+          },
+          __IMTINDEX__: 2,
+          __IMTLENGTH__: 3,
+        },
+        {
+          id: "3cd8c3e2-861c-4261-a70d-89d662bb19c2",
+          data: {
+            name: "שמלה אדומה",
+            status: "0",
+            inventory: 2,
+            picture: null,
+          },
+          __IMTINDEX__: 3,
+          __IMTLENGTH__: 3,
+        },
+      ],
+    };
+
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      okJson(liveShape)
+    );
+
+    const ctx = await fetchLeadContext(URL, "rec_abc");
+
+    expect(ctx.dresses).toHaveLength(3);
+    expect(ctx.dresses.map((d) => ({ name: d.name, inventory: d.inventory }))).toEqual([
+      { name: "שמלה כתומה", inventory: 3 },
+      { name: "שמלה ורודה", inventory: 2 },
+      { name: "שמלה אדומה", inventory: 2 },
+    ]);
   });
 });

@@ -1,16 +1,23 @@
 import type {
+  Dress,
   OrderLine,
   SubmissionInput,
   ValidationError,
   ValidationResult,
 } from "@/types/domain";
-import { hasConflict } from "./dateOverlap";
+import {
+  effectiveInventory,
+  maxReservedInRange,
+  remainingForRange,
+} from "./availability";
 
 export function validateSubmission(
   input: SubmissionInput,
-  orderLines: OrderLine[]
+  orderLines: OrderLine[],
+  dresses: Dress[] = []
 ): ValidationResult {
   const errors: ValidationError[] = [];
+  const dressById = new Map(dresses.map((d) => [d.id, d]));
 
   const recordId = (input.recordId ?? "").trim();
   if (!recordId) {
@@ -70,18 +77,53 @@ export function validateSubmission(
       });
     }
 
-    if (
-      row.dressId &&
-      row.startDate &&
-      row.endDate &&
-      row.endDate >= row.startDate &&
-      hasConflict(row.dressId, row.startDate, row.endDate, orderLines)
-    ) {
+    const dress = row.dressId ? dressById.get(row.dressId) ?? null : null;
+    const cap = effectiveInventory(dress);
+    const hasValidRange =
+      Boolean(row.dressId) &&
+      Boolean(row.startDate) &&
+      Boolean(row.endDate) &&
+      row.endDate >= row.startDate;
+
+    if (hasValidRange && row.dressId) {
+      const peak = maxReservedInRange(
+        orderLines,
+        row.dressId,
+        row.startDate,
+        row.endDate
+      );
+      if (peak >= cap) {
+        errors.push({
+          code: "date_conflict",
+          index,
+          message: `שורה ${index + 1}: התאריכים שנבחרו אינם זמינים לשמלה זו.`,
+        });
+      }
+    }
+
+    if (!Number.isInteger(row.quantity) || row.quantity < 1) {
       errors.push({
-        code: "date_conflict",
+        code: "invalid_quantity",
         index,
-        message: `שורה ${index + 1}: התאריכים שנבחרו אינם זמינים לשמלה זו.`,
+        message: `שורה ${index + 1}: יש לבחור כמות חיובית.`,
       });
+    } else if (row.dressId) {
+      const remaining = hasValidRange
+        ? remainingForRange(dress, orderLines, row.startDate, row.endDate)
+        : cap;
+      if (row.quantity > remaining && remaining > 0) {
+        errors.push({
+          code: "invalid_quantity",
+          index,
+          message: `שורה ${index + 1}: הכמות המבוקשת חורגת מהמלאי הזמין (${remaining}).`,
+        });
+      } else if (row.quantity > cap) {
+        errors.push({
+          code: "invalid_quantity",
+          index,
+          message: `שורה ${index + 1}: הכמות המבוקשת חורגת מהמלאי הזמין (${cap}).`,
+        });
+      }
     }
   });
 

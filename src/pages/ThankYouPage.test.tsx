@@ -26,6 +26,7 @@ const fakeSummary: WebhookPayload = {
       dress_name: "שמלת ערב כחולה",
       start_date: "2026-06-10",
       end_date: "2026-06-14",
+          quantity: 1,
     },
   ],
 };
@@ -50,6 +51,23 @@ describe("ThankYouPage – dress list", () => {
     expect(screen.getByText("10/06/2026 עד 14/06/2026")).toBeInTheDocument();
   });
 
+  it("renders the quantity for each selected dress", () => {
+    const multiQtySummary: WebhookPayload = {
+      ...fakeSummary,
+      selected_dresses: [
+        {
+          dress_id: "dress-001",
+          dress_name: "שמלת ערב כחולה",
+          start_date: "2026-06-10",
+          end_date: "2026-06-14",
+          quantity: 2,
+        },
+      ],
+    };
+    renderThankYou({ summary: multiQtySummary });
+    expect(screen.getByText("כמות: 2")).toBeInTheDocument();
+  });
+
   it("falls back to dress_id when dress_name is null", () => {
     const summaryNullName: WebhookPayload = {
       ...fakeSummary,
@@ -59,6 +77,7 @@ describe("ThankYouPage – dress list", () => {
           dress_name: null,
           start_date: "2026-07-01",
           end_date: "2026-07-05",
+          quantity: 1,
         },
       ],
     };
@@ -75,12 +94,14 @@ describe("ThankYouPage – dress list", () => {
           dress_name: "שמלת ערב כחולה",
           start_date: "2026-06-10",
           end_date: "2026-06-14",
+          quantity: 1,
         },
         {
           dress_id: "dress-002",
           dress_name: "שמלת חתונה לבנה קלאסית",
           start_date: "2026-07-20",
           end_date: "2026-07-22",
+          quantity: 1,
         },
       ],
     };
