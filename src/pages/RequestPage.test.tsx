@@ -5,12 +5,13 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 
 import { RequestPage } from "./RequestPage";
 import { ThankYouPage } from "./ThankYouPage";
+import { appConfig } from "@/lib/appConfig";
 import { expectDateDisabled, pickDate } from "@/test/datePickerHelpers";
 import { pickFromSelect } from "@/test/selectHelpers";
 
-const SUBMIT_URL = "https://hook.example.com/submit";
-const DRESSES_URL = "https://hook.example.com/dresses";
-const RESERVATIONS_URL = "https://hook.example.com/reservations";
+const SUBMIT_URL = appConfig.webhooks.submitUrl;
+const DRESSES_URL = appConfig.webhooks.dressesUrl;
+const RESERVATIONS_URL = appConfig.webhooks.reservationsUrl;
 
 const DRESS_NAMES = {
   "dress-001": "שמלת ערב כחולה",
@@ -138,9 +139,6 @@ describe("RequestPage", () => {
 
   beforeEach(() => {
     vi.useFakeTimers({ now: FIXED_NOW, shouldAdvanceTime: true });
-    vi.stubEnv("VITE_MAKE_SUBMIT_WEBHOOK_URL", SUBMIT_URL);
-    vi.stubEnv("VITE_MAKE_DRESSES_WEBHOOK_URL", DRESSES_URL);
-    vi.stubEnv("VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL", RESERVATIONS_URL);
     installFetchMock();
   });
 
@@ -148,7 +146,6 @@ describe("RequestPage", () => {
     vi.useRealTimers();
     globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
-    vi.unstubAllEnvs();
   });
 
   it("blocks the form when record_id is missing from the URL", () => {
@@ -639,41 +636,5 @@ describe("RequestPage", () => {
     ).toHaveTextContent(/טוען זמינות/);
     expect(screen.getByLabelText(/תאריך התחלה/)).toBeDisabled();
     expect(screen.getByLabelText(/תאריך סיום/)).toBeDisabled();
-  });
-});
-
-describe("RequestPage missing webhook configuration", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it("shows the configuration error screen when the submit webhook url is missing", () => {
-    vi.stubEnv("VITE_MAKE_SUBMIT_WEBHOOK_URL", "");
-    vi.stubEnv("VITE_MAKE_DRESSES_WEBHOOK_URL", DRESSES_URL);
-    vi.stubEnv("VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL", RESERVATIONS_URL);
-    renderApp("/?record_id=rec_123");
-    expect(
-      screen.getByText(/כתובת ה־webhook אינה מוגדרת/)
-    ).toBeInTheDocument();
-  });
-
-  it("shows the configuration error screen when the dresses webhook url is missing", () => {
-    vi.stubEnv("VITE_MAKE_SUBMIT_WEBHOOK_URL", SUBMIT_URL);
-    vi.stubEnv("VITE_MAKE_DRESSES_WEBHOOK_URL", "");
-    vi.stubEnv("VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL", RESERVATIONS_URL);
-    renderApp("/?record_id=rec_123");
-    expect(
-      screen.getByText(/כתובת ה־webhook אינה מוגדרת/)
-    ).toBeInTheDocument();
-  });
-
-  it("shows the configuration error screen when the reservations webhook url is missing", () => {
-    vi.stubEnv("VITE_MAKE_SUBMIT_WEBHOOK_URL", SUBMIT_URL);
-    vi.stubEnv("VITE_MAKE_DRESSES_WEBHOOK_URL", DRESSES_URL);
-    vi.stubEnv("VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL", "");
-    renderApp("/?record_id=rec_123");
-    expect(
-      screen.getByText(/כתובת ה־webhook אינה מוגדרת/)
-    ).toBeInTheDocument();
   });
 });

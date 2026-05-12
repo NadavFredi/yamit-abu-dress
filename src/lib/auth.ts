@@ -1,3 +1,5 @@
+import { appConfig } from "@/lib/appConfig";
+
 const AUTH_FLAG_KEY = "yamit-abu-dress:auth";
 
 export function isAuthenticated(): boolean {
@@ -9,8 +11,8 @@ export function isAuthenticated(): boolean {
 }
 
 export function signIn(username: string, password: string): boolean {
-  const expectedUser = import.meta.env.VITE_AUTH_USER as string | undefined;
-  const expectedPass = import.meta.env.VITE_AUTH_PASS as string | undefined;
+  const expectedUser = appConfig.auth.username;
+  const expectedPass = appConfig.auth.password;
   if (!expectedUser || !expectedPass) return false;
   if (username !== expectedUser || password !== expectedPass) return false;
   try {

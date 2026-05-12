@@ -37,30 +37,26 @@ submit webhook. EasyFlow itself is untouched.
 
 ```bash
 npm install
-cp .env.example .env.local
-# fill in all three webhook URLs in .env.local (see below)
 npm run dev
 ```
 
 Then open `http://localhost:5173/?record_id=rec_demo_123`.
 
-The site requires three Make.com webhook URLs:
+Runtime configuration is hard-coded in `src/lib/appConfig.ts`. It includes the
+Make.com webhook URLs and the login credentials used by the frontend.
 
-- `VITE_MAKE_SUBMIT_WEBHOOK_URL` — receives new rental requests on submit and
+- Submit webhook — receives new rental requests on submit and
   creates the final order in Make.com / EasyFlow. Current URL:
   `https://hook.eu1.make.com/575kvx5nq2uk61mmc7mnv3bdibeyq44y`.
-- `VITE_MAKE_DRESSES_WEBHOOK_URL` — called on page load with `{ record_id }`,
+- Dresses webhook — called on page load with `{ record_id }`,
   returns `{ user, items }` (lead + active dresses) for that customer.
-- `VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL` — called when the user picks a
+- Reservations webhook — called when the user picks a
   dress with `{ dress_id, dress_name }`, returns `{ orders }` (existing
   reservations for that dress, used to disable booked dates in the calendar).
   Cached client-side per dress id for the lifetime of the page.
 
 If `record_id` is missing or empty, the user sees a Hebrew error screen and
 cannot submit.
-
-If any of the three required webhook URLs is missing, a Hebrew configuration
-error screen is shown instead of the form.
 
 ## Test
 
@@ -76,6 +72,7 @@ npm run build         # type-checked production build
 ```
 src/
   lib/
+    appConfig.ts       # hard-coded webhooks and login credentials
     dateOverlap.ts     # pure overlap function (inclusive)
     validation.ts      # form-level + row-level submission validation
     webhook.ts         # builds the Make.com payload and POSTs it
@@ -126,7 +123,7 @@ block.
 
 1. Validate locally; show inline Hebrew errors per row + a top-level alert.
 2. Build payload: `{ customer_record_id, selected_dresses[], submission_timestamp, source }`.
-3. POST JSON to `VITE_MAKE_SUBMIT_WEBHOOK_URL`.
+3. POST JSON to the submit webhook from `src/lib/appConfig.ts`.
 4. On 2xx → navigate to `/thank-you` with a summary in router state.
 5. On error → toast with the message; the user can retry.
 
@@ -152,13 +149,14 @@ block.
 
 The frontend never talks to EasyFlow directly. Three webhooks cover all I/O:
 
-- **Lead + dresses** (page load): `VITE_MAKE_DRESSES_WEBHOOK_URL` ←
+- **Lead + dresses** (page load): dresses webhook from `src/lib/appConfig.ts` ←
   `{ record_id }` → `{ user, items }`
-- **Reservations per dress** (on selection): `VITE_MAKE_DRESS_RESERVATIONS_WEBHOOK_URL`
+- **Reservations per dress** (on selection): reservations webhook from
+  `src/lib/appConfig.ts`
   ← `{ dress_id, dress_name }` → `{ orders: [...] }`. Cached client-side per
   dress id; no refetch on duplicate selections.
-- **Submit** (on form submit): `VITE_MAKE_SUBMIT_WEBHOOK_URL` ← rental request
-  payload → 2xx triggers EasyFlow order creation in Make.com.
+- **Submit** (on form submit): submit webhook from `src/lib/appConfig.ts` ←
+  rental request payload → 2xx triggers EasyFlow order creation in Make.com.
 
 ## Manual test checklist
 
@@ -174,11 +172,9 @@ The frontend never talks to EasyFlow directly. Three webhooks cover all I/O:
   (cached). Verify in Make.com history or Network tab.
 - Open with an unknown record_id (e.g., `00000000-0000-0000-0000-000000000000`)
   → `LeadNotFoundScreen` ("ליד לא נמצא") renders, form does not appear.
-- Temporarily point `VITE_MAKE_DRESSES_WEBHOOK_URL` at a non-existent host or
-  a 500 endpoint → reload → `LoadFailedScreen`. Restore env, click "נסו שוב"
-  → page recovers.
-- Remove any of the three webhook URLs from `.env.local` → reload → "תצורה
-  חסרה" screen.
+- Temporarily point the dresses webhook in `src/lib/appConfig.ts` at a
+  non-existent host or a 500 endpoint → reload → `LoadFailedScreen`. Restore
+  the URL, click "נסו שוב" → page recovers.
 - Pick a dress, set start + end → submit → thank-you page with summary.
 - Click "הוספת שמלה נוספת" twice → three rows. Remove the middle one.
 - Pick the same dress twice → duplicate error.
