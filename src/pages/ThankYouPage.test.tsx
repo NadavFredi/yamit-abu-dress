@@ -51,6 +51,23 @@ describe("ThankYouPage – dress list", () => {
     expect(screen.getByText("10/06/2026 עד 14/06/2026")).toBeInTheDocument();
   });
 
+  it("renders the quantity for each selected dress", () => {
+    const multiQtySummary: WebhookPayload = {
+      ...fakeSummary,
+      selected_dresses: [
+        {
+          dress_id: "dress-001",
+          dress_name: "שמלת ערב כחולה",
+          start_date: "2026-06-10",
+          end_date: "2026-06-14",
+          quantity: 2,
+        },
+      ],
+    };
+    renderThankYou({ summary: multiQtySummary });
+    expect(screen.getByText("כמות: 2")).toBeInTheDocument();
+  });
+
   it("falls back to dress_id when dress_name is null", () => {
     const summaryNullName: WebhookPayload = {
       ...fakeSummary,

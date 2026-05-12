@@ -23,36 +23,61 @@ export function formatIsoToDisplay(iso: string): string {
 
 export function buildStartDateState(
   bookings: OrderLine[],
-  todayIso: string
+  todayIso: string,
+  inventory: number = 1
 ): (iso: string) => DateState {
+  const cap = Math.max(1, Math.floor(inventory));
   return (iso) => {
     if (iso < todayIso) return "past";
+    let count = 0;
     for (const b of bookings) {
-      if (b.startDate <= iso && iso <= b.endDate) return "booked";
+      if (b.startDate <= iso && iso <= b.endDate) {
+        count += Math.max(1, b.quantity);
+      }
     }
-    return null;
+    return count >= cap ? "booked" : null;
   };
 }
 
 export function buildEndDateState(
   bookings: OrderLine[],
   todayIso: string,
-  startDate: string
+  startDate: string,
+  inventory: number = 1
 ): (iso: string) => DateState {
+  const cap = Math.max(1, Math.floor(inventory));
   return (iso) => {
     if (iso < todayIso) return "past";
     if (startDate && iso < startDate) return "past";
     if (startDate) {
-      for (const b of bookings) {
-        if (rangesOverlap(b.startDate, b.endDate, startDate, iso)) {
-          return "booked";
+      const overlapping = bookings.filter((b) =>
+        rangesOverlap(b.startDate, b.endDate, startDate, iso)
+      );
+      let day = startDate;
+      while (day <= iso) {
+        let countOnDay = 0;
+        for (const b of overlapping) {
+          if (b.startDate <= day && day <= b.endDate) {
+            countOnDay += Math.max(1, b.quantity);
+          }
         }
+        if (countOnDay >= cap) return "booked";
+        day = nextIsoDay(day);
       }
-    } else {
-      for (const b of bookings) {
-        if (b.startDate <= iso && iso <= b.endDate) return "booked";
+      return null;
+    }
+    let count = 0;
+    for (const b of bookings) {
+      if (b.startDate <= iso && iso <= b.endDate) {
+        count += Math.max(1, b.quantity);
       }
     }
-    return null;
+    return count >= cap ? "booked" : null;
   };
+}
+
+function nextIsoDay(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + 1));
+  return date.toISOString().slice(0, 10);
 }

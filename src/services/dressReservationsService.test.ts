@@ -30,6 +30,7 @@ const realResponseSample = {
         end_rent_date: "2026-05-31",
         __display_name: "",
         start_rent_date: "2026-05-26",
+        quantity: 2,
         order_status: null,
         order_no: null,
         order_status_label: null,
@@ -48,6 +49,7 @@ const realResponseSample = {
         order_status: "1",
         end_rent_date: "2026-05-15",
         start_rent_date: "2026-05-10",
+        qty: "3",
         order_status_label: "אושר",
       },
       __IMTINDEX__: 2,
@@ -130,12 +132,81 @@ describe("fetchDressReservations", () => {
         dressId: "3cd8c3e2-861c-4261-a70d-89d662bb19c2",
         startDate: "2026-05-26",
         endDate: "2026-05-31",
+        quantity: 2,
       },
       {
         id: "358b9d3e-74d4-4b89-8739-60b4776f7f45",
         dressId: "3cd8c3e2-861c-4261-a70d-89d662bb19c2",
         startDate: "2026-05-10",
         endDate: "2026-05-15",
+        quantity: 3,
+      },
+    ]);
+  });
+
+  it("defaults reservation quantity to 1 when missing, null, or invalid", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      okJson({
+        orders: [
+          {
+            id: "missing",
+            data: {
+              dress: "d1",
+              start_rent_date: "2026-05-10",
+              end_rent_date: "2026-05-11",
+            },
+          },
+          {
+            id: "invalid",
+            data: {
+              dress: "d1",
+              start_rent_date: "2026-05-12",
+              end_rent_date: "2026-05-13",
+              quantity: "bad",
+            },
+          },
+        ],
+      })
+    );
+
+    const lines = await fetchDressReservations(URL, "d1", "שמלה");
+
+    expect(lines.map((l) => l.quantity)).toEqual([1, 1]);
+  });
+
+  it("parses live Make response fields: order_qty and UTC timestamps into Israel dates", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      okJson({
+        orders: [
+          {
+            id: "0a454ad3-d5fe-4797-954e-1892f4bf6121",
+            data: {
+              dress: "3cd8c3e2-861c-4261-a70d-89d662bb19c2",
+              order: "7bfde42c-5d00-49bd-9de3-9094e5d0f0ea",
+              order_qty: 2,
+              order_status: "0",
+              end_rent_date: "2026-05-16T21:00:00.000Z",
+              start_rent_date: "2026-05-13T21:00:00.000Z",
+              order_status_label: "ממתין לאישור",
+            },
+          },
+        ],
+      })
+    );
+
+    const lines = await fetchDressReservations(
+      URL,
+      "3cd8c3e2-861c-4261-a70d-89d662bb19c2",
+      "שמלה אדומה"
+    );
+
+    expect(lines).toEqual([
+      {
+        id: "0a454ad3-d5fe-4797-954e-1892f4bf6121",
+        dressId: "3cd8c3e2-861c-4261-a70d-89d662bb19c2",
+        startDate: "2026-05-14",
+        endDate: "2026-05-17",
+        quantity: 2,
       },
     ]);
   });

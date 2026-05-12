@@ -23,8 +23,8 @@ describe("todayIsoLocal", () => {
 const TODAY = "2026-05-07";
 
 const bookings: OrderLine[] = [
-  { id: "ol-1", dressId: "d", startDate: "2026-06-01", endDate: "2026-06-05" },
-  { id: "ol-2", dressId: "d", startDate: "2026-07-15", endDate: "2026-07-20" },
+  { id: "ol-1", dressId: "d", startDate: "2026-06-01", endDate: "2026-06-05", quantity: 1 },
+  { id: "ol-2", dressId: "d", startDate: "2026-07-15", endDate: "2026-07-20", quantity: 1 },
 ];
 
 describe("buildStartDateState", () => {
@@ -59,6 +59,61 @@ describe("buildStartDateState", () => {
     const state = buildStartDateState([], TODAY);
     expect(state("2026-06-03")).toBe(null);
     expect(state("2026-07-17")).toBe(null);
+  });
+
+  it("marks a day booked when reservation quantity reaches inventory", () => {
+    const state = buildStartDateState(
+      [
+        {
+          id: "q1",
+          dressId: "d",
+          startDate: "2026-06-01",
+          endDate: "2026-06-05",
+          quantity: 2,
+        },
+      ],
+      TODAY,
+      2
+    );
+    expect(state("2026-06-03")).toBe("booked");
+  });
+
+  it("leaves a day available when reservation quantity is below inventory", () => {
+    const state = buildStartDateState(
+      [
+        {
+          id: "q1",
+          dressId: "d",
+          startDate: "2026-06-01",
+          endDate: "2026-06-05",
+          quantity: 2,
+        },
+      ],
+      TODAY,
+      3
+    );
+    expect(state("2026-06-03")).toBe(null);
+  });
+
+  it("marks the live red-dress May 14-17 range booked when order_qty equals inventory", () => {
+    const state = buildStartDateState(
+      [
+        {
+          id: "live-red",
+          dressId: "red",
+          startDate: "2026-05-14",
+          endDate: "2026-05-17",
+          quantity: 2,
+        },
+      ],
+      TODAY,
+      2
+    );
+
+    expect(state("2026-05-14")).toBe("booked");
+    expect(state("2026-05-15")).toBe("booked");
+    expect(state("2026-05-16")).toBe("booked");
+    expect(state("2026-05-17")).toBe("booked");
   });
 });
 
@@ -113,6 +168,24 @@ describe("buildEndDateState", () => {
   it("after both bookings, end date beyond them returns null", () => {
     const state = buildEndDateState(bookings, TODAY, "2026-07-21");
     expect(state("2026-08-10")).toBe(null);
+  });
+
+  it("marks an end-date range booked when reservation quantity reaches inventory", () => {
+    const state = buildEndDateState(
+      [
+        {
+          id: "q1",
+          dressId: "d",
+          startDate: "2026-06-01",
+          endDate: "2026-06-05",
+          quantity: 2,
+        },
+      ],
+      TODAY,
+      "2026-05-30",
+      2
+    );
+    expect(state("2026-06-03")).toBe("booked");
   });
 });
 

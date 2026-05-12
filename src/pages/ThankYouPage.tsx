@@ -47,6 +47,9 @@ export function ThankYouPage() {
                     <span className="text-muted-foreground">
                       {formatIsoToDisplay(d.start_date)} עד {formatIsoToDisplay(d.end_date)}
                     </span>
+                    <span className="text-muted-foreground">
+                      כמות: {d.quantity}
+                    </span>
                   </li>
                 ))}
               </ul>

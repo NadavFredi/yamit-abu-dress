@@ -72,23 +72,57 @@ async function fetchDressReservationsUncached(
         : undefined;
     if (!data) continue;
     const dressIdValue = data.dress;
-    const startDate = data.start_rent_date;
-    const endDate = data.end_rent_date;
+    const rawStartDate = data.start_rent_date;
+    const rawEndDate = data.end_rent_date;
     if (
       typeof id !== "string" ||
       typeof dressIdValue !== "string" ||
-      typeof startDate !== "string" ||
-      typeof endDate !== "string"
+      typeof rawStartDate !== "string" ||
+      typeof rawEndDate !== "string"
     ) {
       continue;
     }
+    const quantity = parseReservationQuantity(
+      data.order_qty ?? data.quantity ?? data.qty
+    );
     lines.push({
       id,
       dressId: dressIdValue,
-      startDate,
-      endDate,
+      startDate: normalizeReservationDate(rawStartDate),
+      endDate: normalizeReservationDate(rawEndDate),
+      quantity,
     });
   }
 
   return lines;
+}
+
+function parseReservationQuantity(raw: unknown): number {
+  if (typeof raw === "number" && Number.isFinite(raw) && raw >= 1) {
+    return Math.floor(raw);
+  }
+  if (typeof raw === "string" && raw.trim() !== "") {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 1) return Math.floor(n);
+  }
+  return 1;
+}
+
+function normalizeReservationDate(raw: string): string {
+  if (!raw.includes("T")) return raw.slice(0, 10);
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw.slice(0, 10);
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jerusalem",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+  if (!year || !month || !day) return raw.slice(0, 10);
+  return `${year}-${month}-${day}`;
 }

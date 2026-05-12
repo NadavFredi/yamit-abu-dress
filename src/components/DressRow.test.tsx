@@ -22,6 +22,7 @@ const orderLines: OrderLine[] = [
     dressId: "dress-1",
     startDate: "2026-06-10",
     endDate: "2026-06-14",
+    quantity: 1,
   },
 ];
 
@@ -190,6 +191,162 @@ describe("DressRow", () => {
   it("disables the quantity input until a dress is picked", () => {
     renderRow();
     expect(screen.getByLabelText(/כמות/)).toBeDisabled();
+  });
+
+  it("caps quantity at 1 when inventory is null (effective inventory = 1)", () => {
+    renderRow({
+      value: { dressId: "dress-1", startDate: "", endDate: "", quantity: 1 },
+    });
+
+    const qty = screen.getByLabelText(/כמות/) as HTMLInputElement;
+    expect(qty.max).toBe("1");
+    expect(screen.getByText(/מלאי זמין: 1/)).toBeInTheDocument();
+  });
+
+  it("shows remaining-in-range when dates are picked", () => {
+    const dressesWithCap: Dress[] = [
+      { id: "dress-1", name: "שמלה אדומה", inventory: 3 },
+    ];
+    const partial: OrderLine[] = [
+      { id: "p1", dressId: "dress-1", startDate: "2026-07-10", endDate: "2026-07-12", quantity: 1 },
+    ];
+    renderRow({
+      dresses: dressesWithCap,
+      orderLines: partial,
+      value: {
+        dressId: "dress-1",
+        startDate: "2026-07-11",
+        endDate: "2026-07-11",
+        quantity: 1,
+      },
+    });
+
+    expect(screen.getByTestId("availability-hint-0")).toHaveTextContent(
+      /2 מתוך 3/
+    );
+    const qty = screen.getByLabelText(/כמות/) as HTMLInputElement;
+    expect(qty.max).toBe("2");
+  });
+
+  it("clamps quantity automatically when remaining decreases", () => {
+    const dressesWithCap: Dress[] = [
+      { id: "dress-1", name: "שמלה אדומה", inventory: 3 },
+    ];
+    const partial: OrderLine[] = [
+      { id: "p1", dressId: "dress-1", startDate: "2026-07-10", endDate: "2026-07-12", quantity: 1 },
+    ];
+    const onChange = vi.fn();
+
+    // The current quantity is 3 but remaining is only 2 → the effect should
+    // immediately emit a clamped quantity of 2.
+    renderRow({
+      dresses: dressesWithCap,
+      orderLines: partial,
+      value: {
+        dressId: "dress-1",
+        startDate: "2026-07-11",
+        endDate: "2026-07-11",
+        quantity: 3,
+      },
+      onChange,
+    });
+
+    expect(onChange).toHaveBeenCalled();
+    const clampedCall = onChange.mock.calls.find(
+      ([next]) => next.quantity === 2
+    );
+    expect(clampedCall).toBeDefined();
+  });
+
+  it("marks a partially-booked range as available with the remaining count", () => {
+    const dressesWithCap: Dress[] = [
+      { id: "dress-1", name: "שמלה אדומה", inventory: 3 },
+    ];
+    const partial: OrderLine[] = [
+      { id: "p1", dressId: "dress-1", startDate: "2026-07-10", endDate: "2026-07-12", quantity: 1 },
+      { id: "p2", dressId: "dress-1", startDate: "2026-07-10", endDate: "2026-07-12", quantity: 1 },
+    ];
+    renderRow({
+      dresses: dressesWithCap,
+      orderLines: partial,
+      value: {
+        dressId: "dress-1",
+        startDate: "2026-07-11",
+        endDate: "2026-07-11",
+        quantity: 1,
+      },
+    });
+
+    expect(screen.getByTestId("availability-0")).toHaveAttribute(
+      "data-status",
+      "available"
+    );
+    expect(screen.getByTestId("availability-hint-0")).toHaveTextContent(
+      /1 מתוך 3/
+    );
+  });
+
+  it("marks a fully-reserved range as unavailable", () => {
+    const dressesWithCap: Dress[] = [
+      { id: "dress-1", name: "שמלה אדומה", inventory: 2 },
+    ];
+    const fullyReserved: OrderLine[] = [
+      { id: "p1", dressId: "dress-1", startDate: "2026-07-10", endDate: "2026-07-12", quantity: 1 },
+      { id: "p2", dressId: "dress-1", startDate: "2026-07-10", endDate: "2026-07-12", quantity: 1 },
+    ];
+    renderRow({
+      dresses: dressesWithCap,
+      orderLines: fullyReserved,
+      value: {
+        dressId: "dress-1",
+        startDate: "2026-07-11",
+        endDate: "2026-07-11",
+        quantity: 1,
+      },
+    });
+
+    expect(screen.getByTestId("availability-0")).toHaveAttribute(
+      "data-status",
+      "unavailable"
+    );
+  });
+
+  it("marks the live red-dress order as unavailable when one CRM row reserves quantity 2", () => {
+    const redDress: Dress[] = [
+      {
+        id: "3cd8c3e2-861c-4261-a70d-89d662bb19c2",
+        name: "שמלה אדומה",
+        inventory: 2,
+      },
+    ];
+    const liveReservation: OrderLine[] = [
+      {
+        id: "0a454ad3-d5fe-4797-954e-1892f4bf6121",
+        dressId: "3cd8c3e2-861c-4261-a70d-89d662bb19c2",
+        startDate: "2026-05-14",
+        endDate: "2026-05-17",
+        quantity: 2,
+      },
+    ];
+
+    renderRow({
+      dresses: redDress,
+      orderLines: liveReservation,
+      value: {
+        dressId: "3cd8c3e2-861c-4261-a70d-89d662bb19c2",
+        startDate: "2026-05-14",
+        endDate: "2026-05-17",
+        quantity: 1,
+      },
+    });
+
+    expect(screen.getByTestId("availability-0")).toHaveAttribute(
+      "data-status",
+      "unavailable"
+    );
+    expect(screen.getByTestId("availability-hint-0")).toHaveTextContent(
+      /0 מתוך 2/
+    );
   });
 
   it("clamps quantity to the inventory cap and emits the clamped value", async () => {

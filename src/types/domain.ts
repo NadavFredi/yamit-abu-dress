@@ -11,6 +11,7 @@ export interface OrderLine {
   dressId: string;
   startDate: string;
   endDate: string;
+  quantity: number;
 }
 
 export interface DressSelection {

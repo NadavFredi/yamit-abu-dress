@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Trash2, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -5,6 +6,10 @@ import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { DressCombobox } from "@/components/DressCombobox";
 import { findConflicts } from "@/lib/dateOverlap";
+import {
+  effectiveInventory,
+  remainingForRange,
+} from "@/lib/availability";
 import {
   buildEndDateState,
   buildStartDateState,
@@ -42,16 +47,15 @@ const errorCodeToField: Record<ValidationError["code"], string | null> = {
   invalid_quantity: "quantity",
 };
 
-const QUANTITY_FALLBACK_MAX = 99;
-
 type LiveStatus =
   | { kind: "idle" }
   | { kind: "invalid_range" }
-  | { kind: "available" }
+  | { kind: "available"; remaining: number }
   | { kind: "unavailable"; conflicts: OrderLine[] };
 
 function computeLiveStatus(
   value: DressSelection,
+  selectedDress: Dress | undefined,
   orderLines: OrderLine[]
 ): LiveStatus {
   if (!value.dressId || !value.startDate || !value.endDate) {
@@ -60,15 +64,22 @@ function computeLiveStatus(
   if (value.endDate < value.startDate) {
     return { kind: "invalid_range" };
   }
+  const remaining = remainingForRange(
+    selectedDress ?? null,
+    orderLines,
+    value.startDate,
+    value.endDate
+  );
+  if (remaining > 0) {
+    return { kind: "available", remaining };
+  }
   const conflicts = findConflicts(
     value.dressId,
     value.startDate,
     value.endDate,
     orderLines
   );
-  return conflicts.length === 0
-    ? { kind: "available" }
-    : { kind: "unavailable", conflicts };
+  return { kind: "unavailable", conflicts };
 }
 
 function CalendarLegend() {
@@ -119,31 +130,54 @@ export function DressRow({
   const endId = `end-${index}`;
   const qtyId = `qty-${index}`;
 
-  const reservationsForDress = value.dressId
-    ? orderLines.filter((l) => l.dressId === value.dressId)
-    : [];
-
   const dressChosen = Boolean(value.dressId);
   const selectedDress = value.dressId
     ? dresses.find((d) => d.id === value.dressId)
     : undefined;
-  const inventoryCap =
-    selectedDress && typeof selectedDress.inventory === "number"
-      ? selectedDress.inventory
-      : null;
-  const quantityMax = inventoryCap ?? QUANTITY_FALLBACK_MAX;
+  const reservationsForDress = value.dressId
+    ? orderLines.filter((l) => l.dressId === value.dressId)
+    : [];
+
+  const cap = effectiveInventory(selectedDress);
+  const hasValidRange =
+    Boolean(value.startDate) &&
+    Boolean(value.endDate) &&
+    value.endDate >= value.startDate;
+  const remainingInRange = hasValidRange
+    ? remainingForRange(
+        selectedDress ?? null,
+        orderLines,
+        value.startDate,
+        value.endDate
+      )
+    : cap;
+  const quantityCap = Math.max(1, hasValidRange ? remainingInRange : cap);
+
+  useEffect(() => {
+    if (!dressChosen) return;
+    if (value.quantity > quantityCap) {
+      onChange({ ...value, quantity: quantityCap });
+    } else if (value.quantity < 1) {
+      onChange({ ...value, quantity: 1 });
+    }
+  }, [dressChosen, quantityCap, value, onChange]);
+
   const reservationsReady = dressChosen && !isReservationsLoading;
   const todayIso = todayIsoLocal();
   const startDateState = reservationsReady
-    ? buildStartDateState(reservationsForDress, todayIso)
+    ? buildStartDateState(reservationsForDress, todayIso, cap)
     : undefined;
   const endDateState = reservationsReady
-    ? buildEndDateState(reservationsForDress, todayIso, value.startDate)
+    ? buildEndDateState(reservationsForDress, todayIso, value.startDate, cap)
     : undefined;
 
   const liveStatus = reservationsReady
-    ? computeLiveStatus(value, orderLines)
+    ? computeLiveStatus(value, selectedDress, orderLines)
     : { kind: "idle" as const };
+
+  const availabilityLabel = hasValidRange
+    ? `זמין לטווח התאריכים: ${remainingInRange} מתוך ${cap}`
+    : `מלאי זמין: ${cap}`;
 
   return (
     <div className="rounded-lg border bg-card p-4 space-y-4">
@@ -174,14 +208,24 @@ export function DressRow({
             selectedName={selectedDress?.name}
             dresses={dresses}
             onChange={(dress) => {
-              const nextInventoryCap =
-                typeof dress.inventory === "number" ? dress.inventory : null;
-              const nextMax = nextInventoryCap ?? QUANTITY_FALLBACK_MAX;
-              const clampedQty = Math.min(
-                Math.max(value.quantity || 1, 1),
-                Math.max(nextMax, 1)
+              const newCap = effectiveInventory(dress);
+              const newRemaining = hasValidRange
+                ? remainingForRange(
+                    dress,
+                    orderLines,
+                    value.startDate,
+                    value.endDate
+                  )
+                : newCap;
+              const newQuantityCap = Math.max(
+                1,
+                hasValidRange ? newRemaining : newCap
               );
-              onChange({ ...value, dressId: dress.id, quantity: clampedQty });
+              const clamped = Math.min(
+                Math.max(value.quantity || 1, 1),
+                newQuantityCap
+              );
+              onChange({ ...value, dressId: dress.id, quantity: clamped });
             }}
             aria-invalid={Boolean(errorsByField.dress)}
           />
@@ -199,7 +243,7 @@ export function DressRow({
             type="number"
             inputMode="numeric"
             min={1}
-            max={quantityMax}
+            max={quantityCap}
             step={1}
             value={value.quantity}
             disabled={!dressChosen}
@@ -212,13 +256,16 @@ export function DressRow({
               }
               const parsed = Number.parseInt(raw, 10);
               if (!Number.isFinite(parsed)) return;
-              const clamped = Math.min(Math.max(parsed, 1), quantityMax);
+              const clamped = Math.min(Math.max(parsed, 1), quantityCap);
               onChange({ ...value, quantity: clamped });
             }}
           />
-          {dressChosen && inventoryCap !== null && (
-            <p className="text-xs text-muted-foreground">
-              מלאי זמין: {inventoryCap}
+          {dressChosen && (
+            <p
+              className="text-xs text-muted-foreground"
+              data-testid={`availability-hint-${index}`}
+            >
+              {availabilityLabel}
             </p>
           )}
           {errorsByField.quantity?.map((e) => (

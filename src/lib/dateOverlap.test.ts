@@ -30,9 +30,9 @@ describe("rangesOverlap (inclusive)", () => {
 
 describe("hasConflict", () => {
   const orderLines: OrderLine[] = [
-    { id: "ol1", dressId: "d1", startDate: "2026-06-01", endDate: "2026-06-05" },
-    { id: "ol2", dressId: "d1", startDate: "2026-06-20", endDate: "2026-06-25" },
-    { id: "ol3", dressId: "d2", startDate: "2026-06-10", endDate: "2026-06-15" },
+    { id: "ol1", dressId: "d1", startDate: "2026-06-01", endDate: "2026-06-05", quantity: 1 },
+    { id: "ol2", dressId: "d1", startDate: "2026-06-20", endDate: "2026-06-25", quantity: 1 },
+    { id: "ol3", dressId: "d2", startDate: "2026-06-10", endDate: "2026-06-15", quantity: 1 },
   ];
 
   it("detects conflict against an existing reservation for the same dress", () => {
