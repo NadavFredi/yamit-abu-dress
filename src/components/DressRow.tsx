@@ -180,8 +180,8 @@ export function DressRow({
     : `מלאי זמין: ${cap}`;
 
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 rounded-lg border bg-card p-3 sm:p-4">
+      <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-muted-foreground">
           שמלה {index + 1}
         </h3>
@@ -192,6 +192,7 @@ export function DressRow({
             size="sm"
             onClick={onRemove}
             aria-label={`הסר שמלה ${index + 1}`}
+            className="shrink-0"
           >
             <Trash2 className="h-4 w-4" />
             הסר
@@ -199,7 +200,7 @@ export function DressRow({
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1.5">
           <Label htmlFor={dressId}>שמלה</Label>
           <DressCombobox
@@ -338,12 +339,12 @@ export function DressRow({
 
       {liveStatus.kind === "available" && (
         <div
-          className="flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700 border border-green-200"
+          className="flex items-start gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700"
           role="status"
           data-testid={`availability-${index}`}
           data-status="available"
         >
-          <CheckCircle2 className="h-4 w-4" />
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span>השמלה זמינה לתאריכים שנבחרו</span>
         </div>
       )}
@@ -356,10 +357,10 @@ export function DressRow({
           data-status="unavailable"
         >
           <span className="flex items-center gap-2 font-medium">
-            <XCircle className="h-4 w-4" />
+            <XCircle className="h-4 w-4 shrink-0" />
             השמלה אינה זמינה לתאריכים שנבחרו
           </span>
-          <span className="text-xs">
+          <span className="text-xs leading-relaxed">
             מתנגש עם:{" "}
             {liveStatus.conflicts
               .map(

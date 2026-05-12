@@ -59,12 +59,14 @@ export function DressCombobox({
             !value && "text-muted-foreground"
           )}
         >
-          <span className="line-clamp-1">{value ? display : placeholder}</span>
-          <ChevronDown className="h-4 w-4 opacity-60" />
+          <span className="min-w-0 flex-1 truncate">
+            {value ? display : placeholder}
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[var(--radix-popover-trigger-width)] p-0"
+        className="max-w-[calc(100vw-1.5rem)] w-[var(--radix-popover-trigger-width)] p-0"
         align="start"
       >
         <div className="border-b p-2">
@@ -107,7 +109,7 @@ export function DressCombobox({
                     selected && "bg-accent/60"
                   )}
                 >
-                  <span className="line-clamp-1">{dress.name}</span>
+                  <span className="min-w-0 flex-1 truncate">{dress.name}</span>
                   {selected && <Check className="h-4 w-4 shrink-0" />}
                 </button>
               );

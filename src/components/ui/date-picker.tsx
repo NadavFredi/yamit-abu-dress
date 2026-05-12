@@ -53,15 +53,20 @@ export function DatePicker({
           aria-invalid={ariaInvalid}
           disabled={disabled}
           className={cn(
-            "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
             !value && "text-muted-foreground"
           )}
         >
-          <span>{value ? formatIsoToDisplay(value) : placeholder}</span>
-          <CalendarIcon className="h-4 w-4 opacity-60" />
+          <span className="min-w-0 flex-1 truncate">
+            {value ? formatIsoToDisplay(value) : placeholder}
+          </span>
+          <CalendarIcon className="h-4 w-4 shrink-0 opacity-60" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent
+        className="w-[calc(100vw-1.5rem)] max-w-80 p-0"
+        align="start"
+      >
         <Calendar
           selected={selected}
           dateState={dateState}

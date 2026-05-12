@@ -177,7 +177,10 @@ export function Calendar({
 
   return (
     <div
-      className={cn("w-full rounded-lg border bg-background p-3", className)}
+      className={cn(
+        "w-full rounded-lg border bg-background p-2.5 sm:p-3",
+        className
+      )}
       dir="rtl"
       data-testid="calendar"
       data-current-month={monthIso}
@@ -254,7 +257,7 @@ export function Calendar({
                   data-disabled={disabled ? "true" : undefined}
                   data-disabled-kind={state ?? undefined}
                   className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-md text-sm transition-colors",
+                    "flex aspect-square w-full min-w-0 items-center justify-center rounded-md text-sm transition-colors",
                     !disabled &&
                       "hover:bg-accent hover:text-accent-foreground",
                     outside && !disabled && "text-muted-foreground/50",
