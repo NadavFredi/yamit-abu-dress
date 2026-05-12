@@ -45,19 +45,19 @@ export function LeadInfoHeader({ user }: LeadInfoHeaderProps) {
   if (!name && !phone) return null;
 
   return (
-    <Card className="mb-4">
-      <CardContent className="py-4">
+    <Card className="mb-3 rounded-lg sm:mb-4 sm:rounded-xl">
+      <CardContent className="p-4">
         <div
           className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
           dir="rtl"
         >
           {name && (
-            <div className="self-start">
+            <div className="min-w-0 self-start">
               <Field icon={User} label="שלום," value={name} />
             </div>
           )}
           {phone && (
-            <div className="self-end">
+            <div className="min-w-0 self-start sm:self-end">
               <Field
                 icon={Phone}
                 label="טלפון:"

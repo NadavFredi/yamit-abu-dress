@@ -233,18 +233,20 @@ export function RequestPage() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 py-8">
-      <div className="container max-w-3xl">
+    <div className="min-h-screen bg-muted/30 py-3 sm:py-8">
+      <div className="mx-auto w-full max-w-3xl px-3 sm:px-4">
         {user && <LeadInfoHeader user={user} />}
-        <Card>
-          <CardHeader>
-            <CardTitle>בקשת השכרת שמלות</CardTitle>
-            <CardDescription>
+        <Card className="rounded-lg sm:rounded-xl">
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="text-xl leading-tight sm:text-2xl">
+              בקשת השכרת שמלות
+            </CardTitle>
+            <CardDescription className="leading-relaxed">
               אנא בחרו את השמלות הרצויות וציינו את תאריכי ההשכרה. לאחר השליחה,
               ניצור איתכם קשר לאישור.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
             {loading ? (
               <p className="text-sm text-muted-foreground py-8 text-center">
                 טוען שמלות זמינות...
@@ -282,17 +284,22 @@ export function RequestPage() {
                   ))}
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <div className="grid gap-3 pt-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={addRow}
+                    className="w-full sm:w-auto"
                   >
                     <Plus className="h-4 w-4" />
                     הוספת שמלה נוספת
                   </Button>
 
-                  <Button type="submit" disabled={submitting}>
+                  <Button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full sm:w-auto"
+                  >
                     <Send className="h-4 w-4" />
                     {submitting ? "שולח..." : "שליחת הבקשה"}
                   </Button>
