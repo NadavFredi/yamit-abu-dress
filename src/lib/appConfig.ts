@@ -6,7 +6,7 @@ export const appConfig = {
       "https://hook.eu1.make.com/ulbgfyoqc6d7mca6m6skhbs3t1dsep73",
   },
   auth: {
-    username: "order",
+    username: "YamitDress",
     password: "AbuDress2026!",
   },
 } as const;
