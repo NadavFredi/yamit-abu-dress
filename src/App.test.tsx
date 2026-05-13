@@ -13,7 +13,7 @@ function renderApp(initialPath: string) {
 }
 
 function seedAuthenticated() {
-  sessionStorage.setItem("yamit-abu-dress:auth", "1");
+  window.localStorage.setItem("yamit-abu-dress:auth", "1");
 }
 
 describe("App routes (authenticated)", () => {
