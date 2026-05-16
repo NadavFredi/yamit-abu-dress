@@ -19,6 +19,7 @@ export interface DressSelection {
   startDate: string;
   endDate: string;
   quantity: number;
+  notes?: string;
 }
 
 export interface SubmissionInput {
@@ -52,6 +53,7 @@ export interface WebhookDressPayload {
   start_date: string;
   end_date: string;
   quantity: number;
+  notes: string | null;
 }
 
 export interface WebhookPayload {

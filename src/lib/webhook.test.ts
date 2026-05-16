@@ -42,6 +42,7 @@ describe("buildWebhookPayload", () => {
         start_date: "2026-07-01",
         end_date: "2026-07-05",
         quantity: 1,
+        notes: null,
       },
       {
         dress_id: "d2",
@@ -49,6 +50,7 @@ describe("buildWebhookPayload", () => {
         start_date: "2026-08-01",
         end_date: "2026-08-03",
         quantity: 1,
+        notes: null,
       },
     ]);
   });
@@ -74,6 +76,42 @@ describe("buildWebhookPayload", () => {
     });
 
     expect(payload.selected_dresses).toEqual([]);
+  });
+
+  it("sets notes to null when notes is missing", () => {
+    const payload = buildWebhookPayload({
+      recordId: "rec_123",
+      selections: [
+        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1 },
+      ],
+      dresses,
+      now: new Date(),
+    });
+    expect(payload.selected_dresses[0].notes).toBeNull();
+  });
+
+  it("sets notes to null when notes is empty or whitespace", () => {
+    const payload = buildWebhookPayload({
+      recordId: "rec_123",
+      selections: [
+        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1, notes: "   " },
+      ],
+      dresses,
+      now: new Date(),
+    });
+    expect(payload.selected_dresses[0].notes).toBeNull();
+  });
+
+  it("trims and forwards non-empty notes", () => {
+    const payload = buildWebhookPayload({
+      recordId: "rec_123",
+      selections: [
+        { dressId: "d1", startDate: "2026-07-01", endDate: "2026-07-05", quantity: 1, notes: "  needs hemming  " },
+      ],
+      dresses,
+      now: new Date(),
+    });
+    expect(payload.selected_dresses[0].notes).toBe("needs hemming");
   });
 });
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check, ChevronDown, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Dress } from "@/types/domain";
 import {
@@ -17,6 +17,7 @@ interface DressComboboxProps {
   onChange: (dress: Dress) => void;
   placeholder?: string;
   "aria-invalid"?: boolean;
+  onAddDress?: (suggestedName: string) => void;
 }
 
 export function DressCombobox({
@@ -27,6 +28,7 @@ export function DressCombobox({
   onChange,
   placeholder = "בחרו שמלה...",
   "aria-invalid": ariaInvalid,
+  onAddDress,
 }: DressComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -88,8 +90,21 @@ export function DressCombobox({
           data-testid="dress-combobox-list"
         >
           {results.length === 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">
-              לא נמצאו שמלות תואמות
+            <div className="flex flex-col items-center gap-3 py-6 text-center text-sm text-muted-foreground">
+              <span>לא נמצאו שמלות תואמות</span>
+              {onAddDress && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    onAddDress(query.trim());
+                  }}
+                  className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Plus className="h-4 w-4" />
+                  הוסף שמלה
+                </button>
+              )}
             </div>
           ) : (
             results.map((dress) => {

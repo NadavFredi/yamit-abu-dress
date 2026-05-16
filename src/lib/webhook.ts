@@ -20,13 +20,17 @@ export function buildWebhookPayload({
 }: BuildPayloadInput): WebhookPayload {
   const dressNameById = new Map(dresses.map((d) => [d.id, d.name]));
 
-  const selected_dresses: WebhookDressPayload[] = selections.map((sel) => ({
-    dress_id: sel.dressId,
-    dress_name: dressNameById.get(sel.dressId) ?? null,
-    start_date: sel.startDate,
-    end_date: sel.endDate,
-    quantity: sel.quantity,
-  }));
+  const selected_dresses: WebhookDressPayload[] = selections.map((sel) => {
+    const trimmedNotes = (sel.notes ?? "").trim();
+    return {
+      dress_id: sel.dressId,
+      dress_name: dressNameById.get(sel.dressId) ?? null,
+      start_date: sel.startDate,
+      end_date: sel.endDate,
+      quantity: sel.quantity,
+      notes: trimmedNotes === "" ? null : trimmedNotes,
+    };
+  });
 
   return {
     customer_record_id: recordId,

@@ -27,6 +27,7 @@ const fakeSummary: WebhookPayload = {
       start_date: "2026-06-10",
       end_date: "2026-06-14",
           quantity: 1,
+      notes: null,
     },
   ],
 };
@@ -61,6 +62,7 @@ describe("ThankYouPage – dress list", () => {
           start_date: "2026-06-10",
           end_date: "2026-06-14",
           quantity: 2,
+          notes: null,
         },
       ],
     };
@@ -78,6 +80,7 @@ describe("ThankYouPage – dress list", () => {
           start_date: "2026-07-01",
           end_date: "2026-07-05",
           quantity: 1,
+          notes: null,
         },
       ],
     };
@@ -95,6 +98,7 @@ describe("ThankYouPage – dress list", () => {
           start_date: "2026-06-10",
           end_date: "2026-06-14",
           quantity: 1,
+          notes: null,
         },
         {
           dress_id: "dress-002",
@@ -102,6 +106,7 @@ describe("ThankYouPage – dress list", () => {
           start_date: "2026-07-20",
           end_date: "2026-07-22",
           quantity: 1,
+          notes: null,
         },
       ],
     };
