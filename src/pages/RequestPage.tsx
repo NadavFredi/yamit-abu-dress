@@ -21,6 +21,7 @@ import { LeadNotFoundScreen } from "@/components/LeadNotFoundScreen";
 
 import { fetchLeadContext } from "@/services/leadContextService";
 import { fetchDressReservations } from "@/services/dressReservationsService";
+import { submitNewDress } from "@/services/addDressService";
 import { appConfig } from "@/lib/appConfig";
 import { validateSubmission } from "@/lib/validation";
 import { buildWebhookPayload, submitToWebhook } from "@/lib/webhook";
@@ -37,6 +38,7 @@ const emptySelection = (): DressSelection => ({
   startDate: "",
   endDate: "",
   quantity: 1,
+  notes: "",
 });
 
 export function RequestPage() {
@@ -64,6 +66,41 @@ export function RequestPage() {
   ]);
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  const handleAddDress = useCallback(
+    async (suggestedName: string) => {
+      const name = suggestedName.trim();
+      if (!name) {
+        toast.error("יש להזין שם שמלה לפני ההוספה.");
+        return;
+      }
+      const now = new Date();
+      try {
+        await submitNewDress(appConfig.webhooks.addDressUrl, {
+          dress_name: name,
+          submission_timestamp: now.toISOString(),
+          submission_timestamp_local: now.toString(),
+          timezone:
+            Intl.DateTimeFormat().resolvedOptions().timeZone ?? "unknown",
+          source: "yamit-abu-dress-website",
+          customer_record_id: recordId || null,
+          customer: user,
+          submitted_by: appConfig.auth.username,
+          page_url:
+            typeof window !== "undefined" ? window.location.href : null,
+          user_agent:
+            typeof navigator !== "undefined" ? navigator.userAgent : null,
+          language:
+            typeof navigator !== "undefined" ? navigator.language : null,
+        });
+        toast.success(`השמלה "${name}" נשלחה להוספה למערכת.`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "שגיאה לא ידועה.";
+        toast.error(`הוספת השמלה נכשלה: ${message}`);
+      }
+    },
+    [recordId, user]
+  );
 
   useEffect(() => {
     if (
@@ -230,7 +267,7 @@ export function RequestPage() {
 
   return (
     <div className="min-h-screen bg-muted/30 py-3 sm:py-8">
-      <div className="mx-auto w-full max-w-3xl px-3 sm:px-4">
+      <div className="mx-auto w-full max-w-6xl px-3 sm:px-4">
         {user && <LeadInfoHeader user={user} />}
         <Card className="rounded-lg sm:rounded-xl">
           <CardHeader className="p-4 sm:p-6">
@@ -276,6 +313,7 @@ export function RequestPage() {
                       canRemove={selections.length > 1}
                       onChange={(next) => updateRow(index, next)}
                       onRemove={() => removeRow(index)}
+                      onAddDress={handleAddDress}
                     />
                   ))}
                 </div>

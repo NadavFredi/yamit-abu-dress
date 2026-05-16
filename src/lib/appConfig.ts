@@ -4,6 +4,7 @@ export const appConfig = {
     dressesUrl: "https://hook.eu1.make.com/ckfk7tujrdsu1c753mqe3cdlfb8xb1br",
     reservationsUrl:
       "https://hook.eu1.make.com/ulbgfyoqc6d7mca6m6skhbs3t1dsep73",
+    addDressUrl: "https://hook.eu1.make.com/8rw6jghyesap0diibhvkc5vnx09xp9ah",
   },
   auth: {
     username: "YamitDress",

@@ -400,4 +400,45 @@ describe("DressRow", () => {
       "true"
     );
   });
+
+  it("renders an optional notes textarea labeled 'הערות' that is enabled before a dress is picked", () => {
+    renderRow();
+    const notes = screen.getByLabelText(/הערות/);
+    expect(notes.tagName).toBe("TEXTAREA");
+    expect(notes).not.toBeDisabled();
+  });
+
+  it("forwards notes changes through onChange while preserving other fields", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderRow({
+      value: { dressId: "dress-1", startDate: "2026-06-20", endDate: "2026-06-22", quantity: 1 },
+      onChange,
+    });
+
+    await user.type(screen.getByLabelText(/הערות/), "a");
+
+    const lastCall = onChange.mock.calls.at(-1)?.[0];
+    expect(lastCall).toMatchObject({
+      dressId: "dress-1",
+      startDate: "2026-06-20",
+      endDate: "2026-06-22",
+      quantity: 1,
+      notes: "a",
+    });
+  });
+
+  it("renders the current notes value when provided", () => {
+    renderRow({
+      value: {
+        dressId: "dress-1",
+        startDate: "",
+        endDate: "",
+        quantity: 1,
+        notes: "needs hemming",
+      },
+    });
+    const notes = screen.getByLabelText(/הערות/) as HTMLTextAreaElement;
+    expect(notes.value).toBe("needs hemming");
+  });
 });

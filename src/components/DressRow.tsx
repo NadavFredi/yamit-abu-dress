@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Textarea } from "@/components/ui/textarea";
 import { DressCombobox } from "@/components/DressCombobox";
 import { findConflicts } from "@/lib/dateOverlap";
 import {
@@ -33,6 +34,7 @@ interface DressRowProps {
   canRemove: boolean;
   onChange: (next: DressSelection) => void;
   onRemove: () => void;
+  onAddDress?: (suggestedName: string) => void;
 }
 
 const errorCodeToField: Record<ValidationError["code"], string | null> = {
@@ -113,6 +115,7 @@ export function DressRow({
   canRemove,
   onChange,
   onRemove,
+  onAddDress,
 }: DressRowProps) {
   const errorsByField = errors.reduce<Record<string, ValidationError[]>>(
     (acc, err) => {
@@ -129,6 +132,7 @@ export function DressRow({
   const startId = `start-${index}`;
   const endId = `end-${index}`;
   const qtyId = `qty-${index}`;
+  const notesId = `notes-${index}`;
 
   const dressChosen = Boolean(value.dressId);
   const selectedDress = value.dressId
@@ -208,6 +212,7 @@ export function DressRow({
             value={value.dressId}
             selectedName={selectedDress?.name}
             dresses={dresses}
+            onAddDress={onAddDress}
             onChange={(dress) => {
               const newCap = effectiveInventory(dress);
               const newRemaining = hasValidRange
@@ -318,6 +323,16 @@ export function DressRow({
           {e.message}
         </p>
       ))}
+
+      <div className="space-y-1.5">
+        <Label htmlFor={notesId}>הערות (אופציונלי)</Label>
+        <Textarea
+          id={notesId}
+          rows={3}
+          value={value.notes ?? ""}
+          onChange={(e) => onChange({ ...value, notes: e.target.value })}
+        />
+      </div>
 
       {!value.dressId && (
         <div
