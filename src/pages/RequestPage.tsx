@@ -74,9 +74,16 @@ export function RequestPage() {
         toast.error("יש להזין שם שמלה לפני ההוספה.");
         return;
       }
+      const existing = dresses.find(
+        (d) => d.name.trim().toLowerCase() === name.toLowerCase()
+      );
+      if (existing) {
+        toast.info(`השמלה "${name}" כבר קיימת ברשימה.`);
+        return;
+      }
       const now = new Date();
       try {
-        await submitNewDress(appConfig.webhooks.addDressUrl, {
+        const result = await submitNewDress(appConfig.webhooks.addDressUrl, {
           dress_name: name,
           submission_timestamp: now.toISOString(),
           submission_timestamp_local: now.toString(),
@@ -93,13 +100,26 @@ export function RequestPage() {
           language:
             typeof navigator !== "undefined" ? navigator.language : null,
         });
-        toast.success(`השמלה "${name}" נשלחה להוספה למערכת.`);
+        setDresses((prev) => {
+          if (prev.some((d) => d.id === result.id)) return prev;
+          return [
+            ...prev,
+            {
+              id: result.id,
+              name: result.name ?? name,
+              inventory:
+                result.inventory === undefined ? null : result.inventory,
+              imageUrl: result.imageUrl,
+            },
+          ];
+        });
+        toast.success(`השמלה "${name}" נוספה לרשימה.`);
       } catch (err) {
         const message = err instanceof Error ? err.message : "שגיאה לא ידועה.";
         toast.error(`הוספת השמלה נכשלה: ${message}`);
       }
     },
-    [recordId, user]
+    [recordId, user, dresses]
   );
 
   useEffect(() => {
